@@ -10,11 +10,14 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "anthropic-ai/sdk": "^0.7",
+        "dedoc/scramble": "^0.13.30",
         "laravel/framework": "^13.8",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "nwidart/laravel-modules": "^13.0",
-        "wikimedia/composer-merge-plugin": "^2.1",
-        "anthropic-ai/sdk": "^0.7"
+        "predis/predis": "^3.5",
+        "wikimedia/composer-merge-plugin": "^2.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

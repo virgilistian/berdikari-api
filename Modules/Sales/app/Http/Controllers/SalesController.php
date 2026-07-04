@@ -10,10 +10,39 @@ use Modules\Sales\Events\SaleOrderCompleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * @tags Sales — POS Checkout
+ */
 class SalesController extends Controller
 {
     /**
-     * Process checkout from POS
+     * Checkout POS
+     *
+     * Memproses transaksi penjualan dari kasir (Point of Sale).
+     * Setelah checkout berhasil, event `SaleOrderCompleted` dikirim untuk
+     * memperbarui stok inventori secara otomatis.
+     *
+     * @response 201 {
+     *   "message": "Checkout successful",
+     *   "order": {
+     *     "id": "uuid",
+     *     "business_id": "uuid",
+     *     "user_id": "uuid",
+     *     "status": "completed",
+     *     "total_amount": 25000,
+     *     "items": [
+     *       {
+     *         "id": "uuid",
+     *         "product_id": "uuid",
+     *         "quantity": 2,
+     *         "unit_price": 5000,
+     *         "subtotal": 10000
+     *       }
+     *     ]
+     *   }
+     * }
+     * @response 422 {"message": "Validation failed", "errors": {"items": ["The items field is required."]}}
+     * @response 500 {"message": "Checkout failed", "error": "Database error detail"}
      */
     public function checkout(Request $request)
     {

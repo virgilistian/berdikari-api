@@ -5,10 +5,28 @@ namespace Modules\Catalog\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+/**
+ * @tags Catalog — Produk
+ */
 class ProductController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Daftar produk
+     *
+     * Mengembalikan semua produk dalam bisnis/cabang pengguna.
+     * Scope otomatis dibatasi berdasarkan `business_id` dan `branch_id` dari token login.
+     *
+     * @response 200 {
+     *   "data": [
+     *     {
+     *       "id": "uuid",
+     *       "name": "Nasi Kucing",
+     *       "price": 5000,
+     *       "category_id": "uuid",
+     *       "created_at": "2024-01-01T00:00:00+00:00"
+     *     }
+     *   ]
+     * }
      */
     public function index()
     {
@@ -18,7 +36,9 @@ class ProductController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Buat produk baru
+     *
+     * @response 201 {"data": {"id": "uuid", "name": "Nasi Kucing", "price": 5000, "category_id": "uuid"}}
      */
     public function store(Request $request)
     {
@@ -28,7 +48,10 @@ class ProductController extends Controller
     }
 
     /**
-     * Show the specified resource.
+     * Detail produk
+     *
+     * @response 200 {"data": {"id": "uuid", "name": "Nasi Kucing", "price": 5000, "category_id": "uuid"}}
+     * @response 404 {"message": "Not found."}
      */
     public function show($id)
     {
@@ -38,7 +61,10 @@ class ProductController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Perbarui produk
+     *
+     * @response 200 {"data": {"id": "uuid", "name": "Nasi Kucing Updated", "price": 6000}}
+     * @response 404 {"message": "Not found."}
      */
     public function update(Request $request, $id)
     {
@@ -48,7 +74,10 @@ class ProductController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Hapus produk
+     *
+     * @response 200 {"message": "Produk berhasil dihapus."}
+     * @response 404 {"message": "Not found."}
      */
     public function destroy($id)
     {
@@ -57,3 +86,4 @@ class ProductController extends Controller
         return response()->json([]);
     }
 }
+

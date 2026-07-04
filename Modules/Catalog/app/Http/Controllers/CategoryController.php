@@ -5,10 +5,17 @@ namespace Modules\Catalog\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+/**
+ * @tags Catalog — Kategori
+ */
 class CategoryController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Daftar kategori
+     *
+     * Mengembalikan semua kategori produk dalam bisnis pengguna.
+     *
+     * @response 200 {"data": [{"id": "uuid", "name": "Minuman", "created_at": "2024-01-01T00:00:00+00:00"}]}
      */
     public function index()
     {
@@ -18,7 +25,9 @@ class CategoryController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Buat kategori baru
+     *
+     * @response 201 {"data": {"id": "uuid", "name": "Minuman"}}
      */
     public function store(Request $request)
     {
@@ -28,7 +37,10 @@ class CategoryController extends Controller
     }
 
     /**
-     * Show the specified resource.
+     * Detail kategori
+     *
+     * @response 200 {"data": {"id": "uuid", "name": "Minuman"}}
+     * @response 404 {"message": "Not found."}
      */
     public function show($id)
     {
@@ -38,7 +50,10 @@ class CategoryController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Perbarui kategori
+     *
+     * @response 200 {"data": {"id": "uuid", "name": "Minuman Updated"}}
+     * @response 404 {"message": "Not found."}
      */
     public function update(Request $request, $id)
     {
@@ -48,7 +63,10 @@ class CategoryController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Hapus kategori
+     *
+     * @response 200 {"message": "Kategori berhasil dihapus."}
+     * @response 404 {"message": "Not found."}
      */
     public function destroy($id)
     {
@@ -57,3 +75,4 @@ class CategoryController extends Controller
         return response()->json([]);
     }
 }
+

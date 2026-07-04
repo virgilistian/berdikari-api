@@ -5,10 +5,25 @@ namespace Modules\Inventory\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+/**
+ * @tags Inventory — Stok Realtime
+ */
 class InventoryController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Daftar stok realtime
+     *
+     * Mengembalikan daftar stok produk secara realtime untuk bisnis pengguna.
+     *
+     * @response 200 {
+     *   "data": [
+     *     {
+     *       "product_id": "uuid",
+     *       "product_name": "Nasi Kucing",
+     *       "current_stock": 32
+     *     }
+     *   ]
+     * }
      */
     public function index()
     {
@@ -17,6 +32,8 @@ class InventoryController extends Controller
 
     /**
      * Show the form for creating a new resource.
+     *
+     * @hideFromAPIDocumentation
      */
     public function create()
     {
@@ -29,7 +46,10 @@ class InventoryController extends Controller
     public function store(Request $request) {}
 
     /**
-     * Show the specified resource.
+     * Detail stok produk
+     *
+     * @response 200 {"data": {"product_id": "uuid", "product_name": "Nasi Kucing", "current_stock": 32}}
+     * @response 404 {"message": "Not found."}
      */
     public function show($id)
     {
@@ -38,6 +58,8 @@ class InventoryController extends Controller
 
     /**
      * Show the form for editing the specified resource.
+     *
+     * @hideFromAPIDocumentation
      */
     public function edit($id)
     {
@@ -54,3 +76,4 @@ class InventoryController extends Controller
      */
     public function destroy($id) {}
 }
+

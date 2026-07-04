@@ -7,11 +7,40 @@ use Illuminate\Http\Request;
 use Modules\Catalog\Models\Product;
 use Modules\Sales\Services\PlateScanService;
 
+/**
+ * @tags Sales — Scan Piring (AI)
+ */
 class PlateScanController extends Controller
 {
     /**
-     * Scan a plate of food from a camera capture or uploaded image and
-     * return catalog products matched to the detected items.
+     * Scan piring makanan
+     *
+     * Mengunggah foto piring dan mendeteksi item makanan menggunakan AI (Anthropic Claude).
+     * Hasil deteksi dicocokkan dengan katalog produk bisnis.
+     *
+     * Jika `ANTHROPIC_API_KEY` tidak dikonfigurasi, endpoint mengembalikan
+     * hasil demo dari katalog nyata (aman untuk presentasi tanpa biaya API).
+     *
+     * @unauthenticated false
+     * @response 200 {
+     *   "items": [
+     *     {
+     *       "detected_name": "Nasi Kucing",
+     *       "quantity": 2,
+     *       "confidence": "high",
+     *       "product": {
+     *         "id": "uuid",
+     *         "name": "Nasi Kucing",
+     *         "price": 5000
+     *       }
+     *     }
+     *   ],
+     *   "unmatched": [
+     *     {"detected_name": "Kerupuk", "quantity": 1}
+     *   ],
+     *   "image_path": "plate-scans/abc123.jpg"
+     * }
+     * @response 502 {"message": "Plate scan failed", "error": "AI service error detail"}
      */
     public function scan(Request $request, PlateScanService $scanner)
     {
