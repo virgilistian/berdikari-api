@@ -18,7 +18,7 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', Password::min(8)],
-            'role' => ['required', 'in:owner,cashier,production'],
+            'role' => ['required', 'in:super-admin,business-owner,manager,supervisor,cashier,kitchen-staff,inventory-staff,finance,employee,viewer'],
         ];
     }
 
@@ -31,7 +31,7 @@ class StoreUserRequest extends FormRequest
             'email.unique' => 'Email sudah terdaftar.',
             'password.required' => 'Password wajib diisi.',
             'role.required' => 'Role wajib dipilih.',
-            'role.in' => 'Role tidak valid. Pilih: owner, cashier, atau production.',
+            'role.in'       => 'Role tidak valid. Pilih salah satu dari: business-owner, manager, supervisor, cashier, kitchen-staff, inventory-staff, finance, employee, viewer.',
         ];
     }
 }

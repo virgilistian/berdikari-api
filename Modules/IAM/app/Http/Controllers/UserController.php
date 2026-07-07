@@ -28,6 +28,8 @@ class UserController extends Controller
      *       "email": "budi@example.com",
      *       "role": "owner",
      *       "business_id": "uuid",
+     *       "roles": ["business-owner"],
+     *       "permissions": ["finance.view"],
      *       "created_at": "2024-01-01T00:00:00+00:00"
      *     }
      *   ]
@@ -35,6 +37,13 @@ class UserController extends Controller
      */
     public function index(): JsonResponse
     {
+        if (! auth()->user()->hasPermissionTo('user.manage')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya pemilik yang dapat mengelola pengguna.',
+            ], 403);
+        }
+
         $users = User::where('business_id', auth()->user()->business_id)
             ->orderBy('name')
             ->get();
@@ -48,7 +57,7 @@ class UserController extends Controller
     /**
      * Buat pengguna baru
      *
-     * Hanya dapat dilakukan oleh pengguna dengan role **owner**.
+     * Hanya dapat dilakukan oleh pengguna dengan permission **user.manage**.
      *
      * @response 201 {
      *   "success": true,
@@ -58,6 +67,8 @@ class UserController extends Controller
      *     "email": "sari@example.com",
      *     "role": "cashier",
      *     "business_id": "uuid",
+     *     "roles": ["cashier"],
+     *     "permissions": ["pos.view", "pos.open", "pos.close"],
      *     "created_at": "2024-01-01T00:00:00+00:00"
      *   },
      *   "message": "Pengguna berhasil dibuat."
@@ -69,17 +80,28 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
-        if (auth()->user()->role !== 'owner') {
+        if (! auth()->user()->hasPermissionTo('user.manage')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya pemilik yang dapat mengelola pengguna.',
             ], 403);
         }
 
+        $validated = $request->validated();
+
         $user = User::create([
             'business_id' => auth()->user()->business_id,
-            ...$request->validated(),
+            ...$validated,
         ]);
+
+        // Assign the chosen role via spatie RBAC (if provided and exists)
+        $businessId = auth()->user()->business_id;
+        setPermissionsTeamId($businessId);
+
+        $roleName = $validated['role'] ?? null;
+        if ($roleName) {
+            $user->assignRole($roleName);
+        }
 
         return response()->json([
             'success' => true,
@@ -99,6 +121,8 @@ class UserController extends Controller
      *     "email": "budi@example.com",
      *     "role": "owner",
      *     "business_id": "uuid",
+     *     "roles": ["business-owner"],
+     *     "permissions": ["finance.view"],
      *     "created_at": "2024-01-01T00:00:00+00:00"
      *   }
      * }
@@ -109,6 +133,13 @@ class UserController extends Controller
      */
     public function show(User $user): JsonResponse
     {
+        if (! auth()->user()->hasPermissionTo('user.manage')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya pemilik yang dapat mengelola pengguna.',
+            ], 403);
+        }
+
         if ($user->business_id !== auth()->user()->business_id) {
             return response()->json([
                 'success' => false,
@@ -125,7 +156,7 @@ class UserController extends Controller
     /**
      * Perbarui pengguna
      *
-     * Hanya dapat dilakukan oleh pengguna dengan role **owner**.
+     * Hanya dapat dilakukan oleh pengguna dengan permission **user.manage**.
      * Semua field bersifat opsional (partial update).
      *
      * @response 200 {
@@ -136,6 +167,8 @@ class UserController extends Controller
      *     "email": "sari@example.com",
      *     "role": "cashier",
      *     "business_id": "uuid",
+     *     "roles": ["cashier"],
+     *     "permissions": ["pos.view"],
      *     "created_at": "2024-01-01T00:00:00+00:00"
      *   },
      *   "message": "Pengguna berhasil diperbarui."
@@ -145,7 +178,7 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        if (auth()->user()->role !== 'owner') {
+        if (! auth()->user()->hasPermissionTo('user.manage')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya pemilik yang dapat mengelola pengguna.',
@@ -171,7 +204,7 @@ class UserController extends Controller
     /**
      * Hapus pengguna
      *
-     * Hanya dapat dilakukan oleh pengguna dengan role **owner**.
+     * Hanya dapat dilakukan oleh pengguna dengan permission **user.manage**.
      * Tidak dapat menghapus akun sendiri.
      *
      * @response 200 {"success": true, "message": "Pengguna berhasil dihapus."}
@@ -181,7 +214,7 @@ class UserController extends Controller
      */
     public function destroy(User $user): JsonResponse
     {
-        if (auth()->user()->role !== 'owner') {
+        if (! auth()->user()->hasPermissionTo('user.manage')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya pemilik yang dapat mengelola pengguna.',

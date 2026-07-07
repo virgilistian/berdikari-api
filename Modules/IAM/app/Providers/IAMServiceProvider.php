@@ -2,8 +2,9 @@
 
 namespace Modules\IAM\Providers;
 
-use Nwidart\Modules\Support\ModuleServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
+use Modules\IAM\Http\Middleware\SetPermissionsTeamId;
+use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class IAMServiceProvider extends ModuleServiceProvider
 {
@@ -18,13 +19,6 @@ class IAMServiceProvider extends ModuleServiceProvider
     protected string $nameLower = 'iam';
 
     /**
-     * Command classes to register.
-     *
-     * @var string[]
-     */
-    // protected array $commands = [];
-
-    /**
      * Provider classes to register.
      *
      * @var string[]
@@ -35,12 +29,14 @@ class IAMServiceProvider extends ModuleServiceProvider
     ];
 
     /**
-     * Define module schedules.
-     * 
-     * @param $schedule
+     * Register the middleware alias so routes can use 'permission.team'.
      */
-    // protected function configureSchedules(Schedule $schedule): void
-    // {
-    //     $schedule->command('inspire')->hourly();
-    // }
+    public function boot(): void
+    {
+        parent::boot();
+
+        /** @var \Illuminate\Routing\Router $router */
+        $router = $this->app['router'];
+        $router->aliasMiddleware('permission.team', SetPermissionsTeamId::class);
+    }
 }

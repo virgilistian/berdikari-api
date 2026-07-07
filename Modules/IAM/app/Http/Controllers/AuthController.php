@@ -17,15 +17,24 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
+                'success' => false,
                 'message' => 'Email atau password salah.',
             ], 401);
         }
 
+        // Set team context so spatie resolves business-scoped roles & permissions
+        // before UserResource calls getRoleNames() / getAllPermissions().
+        setPermissionsTeamId($user->business_id);
+
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'token' => $token,
-            'user'  => new UserResource($user),
+            'success' => true,
+            'data'    => [
+                'token' => $token,
+                'user'  => new UserResource($user),
+            ],
+            'message' => 'Login berhasil.',
         ]);
     }
 
@@ -40,6 +49,9 @@ class AuthController extends Controller
 
     public function me(): JsonResponse
     {
-        return response()->json(new UserResource(auth()->user()));
+        return response()->json([
+            'success' => true,
+            'data'    => new UserResource(auth()->user()),
+        ]);
     }
 }
