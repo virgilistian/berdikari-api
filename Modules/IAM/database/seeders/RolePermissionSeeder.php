@@ -26,8 +26,10 @@ class RolePermissionSeeder extends Seeder
             'finance.view', 'finance.create', 'finance.update', 'finance.delete', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete',
-            'report.view',
+            'report.view', 'report.export',
             'employee.view', 'employee.create', 'employee.update',
+            'attendance.view', 'attendance.create',
+            'leave.view', 'leave.create', 'leave.approve',
             'role.assign', 'user.manage', 'business.manage',
         ],
 
@@ -36,8 +38,10 @@ class RolePermissionSeeder extends Seeder
             'finance.view', 'finance.create', 'finance.update', 'finance.delete', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete',
-            'report.view',
+            'report.view', 'report.export',
             'employee.view', 'employee.create', 'employee.update',
+            'attendance.view', 'attendance.create',
+            'leave.view', 'leave.create', 'leave.approve',
             'role.assign', 'user.manage', 'business.manage',
         ],
 
@@ -46,8 +50,10 @@ class RolePermissionSeeder extends Seeder
             'finance.view', 'finance.create', 'finance.update', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update',
-            'report.view',
+            'report.view', 'report.export',
             'employee.view', 'employee.create', 'employee.update',
+            'attendance.view', 'attendance.create',
+            'leave.view', 'leave.create', 'leave.approve',
             'role.assign',
         ],
 
@@ -58,22 +64,30 @@ class RolePermissionSeeder extends Seeder
             'catalog.view',
             'report.view',
             'employee.view',
+            'attendance.view', 'attendance.create',
+            'leave.view', 'leave.create', 'leave.approve',
         ],
 
         'cashier' => [
             'pos.view', 'pos.open', 'pos.close',
             'catalog.view',
             'inventory.view',
+            'attendance.create',
+            'leave.create',
         ],
 
         'kitchen-staff' => [
             'inventory.view', 'inventory.create', 'inventory.update',
             'catalog.view',
+            'attendance.create',
+            'leave.create',
         ],
 
         'inventory-staff' => [
             'inventory.view', 'inventory.create', 'inventory.update',
             'catalog.view',
+            'attendance.create',
+            'leave.create',
         ],
 
         'finance' => [
@@ -81,11 +95,13 @@ class RolePermissionSeeder extends Seeder
             'pos.view',
             'inventory.view',
             'catalog.view',
-            'report.view',
+            'report.view', 'report.export',
         ],
 
         'employee' => [
             'catalog.view',
+            'attendance.create',
+            'leave.create',
         ],
 
         'viewer' => [
@@ -95,6 +111,8 @@ class RolePermissionSeeder extends Seeder
             'catalog.view',
             'report.view',
             'employee.view',
+            'attendance.view',
+            'leave.view',
         ],
     ];
 

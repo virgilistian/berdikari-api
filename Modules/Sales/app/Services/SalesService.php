@@ -25,12 +25,27 @@ class SalesService
     {
         $action = $data['action'] ?? 'complete'; // hold | complete
 
+        // Offline-sync idempotency: the same client transaction (identified by
+        // client_uuid) must never create a second order — return the original.
+        if (! empty($data['client_uuid'])) {
+            $existing = SaleOrder::withoutGlobalScopes()
+                ->with(['items', 'payments'])
+                ->where('business_id', $businessId)
+                ->where('client_uuid', $data['client_uuid'])
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
+
         return DB::transaction(function () use ($businessId, $userId, $data, $action) {
             $total = collect($data['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
 
             $order = SaleOrder::create([
                 'business_id'    => $businessId,
                 'order_no'       => $this->generateOrderNo($businessId),
+                'client_uuid'    => $data['client_uuid'] ?? null,
                 'user_id'        => $userId,
                 'status'         => $action === 'hold' ? 'open' : 'completed',
                 'payment_status' => 'unpaid',
@@ -190,6 +205,88 @@ class SalesService
         }
 
         return $query->orderByDesc('created_at')->limit(100)->get();
+    }
+
+    /**
+     * Sales aggregation for dashboard & reports (date range inclusive).
+     *
+     * @return array{
+     *   from: string, to: string, order_count: int, gross_sales: float,
+     *   paid_amount: float, average_ticket: float,
+     *   daily: array<int, array{date: string, total: float, orders: int}>,
+     *   top_products: array<int, array{product_id: string, name: ?string, quantity: int, subtotal: float}>,
+     *   payment_methods: array<string, float>
+     * }
+     */
+    public function summary(string $businessId, ?string $from = null, ?string $to = null): array
+    {
+        $from ??= now()->toDateString();
+        $to   ??= now()->toDateString();
+
+        $orders = SaleOrder::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'completed')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->get(['id', 'total_amount', 'paid_amount', 'created_at']);
+
+        $gross = round((float) $orders->sum('total_amount'), 2);
+        $count = $orders->count();
+
+        $daily = $orders
+            ->groupBy(fn ($o) => $o->created_at->toDateString())
+            ->map(fn ($group, $date) => [
+                'date'   => $date,
+                'total'  => round((float) $group->sum('total_amount'), 2),
+                'orders' => $group->count(),
+            ])
+            ->sortKeys()
+            ->values()
+            ->all();
+
+        $items = SaleOrderItem::query()
+            ->whereIn('sale_order_id', $orders->pluck('id'))
+            ->get(['product_id', 'quantity', 'subtotal']);
+
+        // Product names resolved via the Catalog model (same precedent as
+        // PlateScanController — no raw cross-module SQL).
+        $names = \Modules\Catalog\Models\Product::withoutGlobalScopes()
+            ->whereIn('id', $items->pluck('product_id')->unique())
+            ->pluck('name', 'id');
+
+        $topProducts = $items
+            ->groupBy('product_id')
+            ->map(fn ($group, $productId) => [
+                'product_id' => $productId,
+                'name'       => $names[$productId] ?? null,
+                'quantity'   => (int) $group->sum('quantity'),
+                'subtotal'   => round((float) $group->sum('subtotal'), 2),
+            ])
+            ->sortByDesc('quantity')
+            ->take(10)
+            ->values()
+            ->all();
+
+        $paymentMethods = SalePayment::query()
+            ->where('business_id', $businessId)
+            ->whereDate('paid_at', '>=', $from)
+            ->whereDate('paid_at', '<=', $to)
+            ->get(['method', 'amount'])
+            ->groupBy('method')
+            ->map(fn ($group) => round((float) $group->sum('amount'), 2))
+            ->all();
+
+        return [
+            'from'            => $from,
+            'to'              => $to,
+            'order_count'     => $count,
+            'gross_sales'     => $gross,
+            'paid_amount'     => round((float) $orders->sum('paid_amount'), 2),
+            'average_ticket'  => $count > 0 ? round($gross / $count, 2) : 0.0,
+            'daily'           => $daily,
+            'top_products'    => $topProducts,
+            'payment_methods' => $paymentMethods,
+        ];
     }
 
     private function resolvePaymentStatus(float $paid, float $total): string

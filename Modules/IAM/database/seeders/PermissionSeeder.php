@@ -40,11 +40,21 @@ class PermissionSeeder extends Seeder
 
         // Reports / Laporan
         'report.view',
+        'report.export',
 
         // Employee / Karyawan
         'employee.view',
         'employee.create',
         'employee.update',
+
+        // Attendance / Absensi
+        'attendance.view',
+        'attendance.create',
+
+        // Leave / Cuti & Izin
+        'leave.view',
+        'leave.create',
+        'leave.approve',
 
         // Roles & Users
         'role.assign',

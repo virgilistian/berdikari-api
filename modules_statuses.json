@@ -4,5 +4,6 @@
     "Catalog": true,
     "Inventory": true,
     "Sales": true,
-    "Finance": true
+    "Finance": true,
+    "HR": true
 }

@@ -8,6 +8,8 @@ use Modules\Sales\Http\Controllers\SalesController;
 Route::middleware(['auth:sanctum'])->prefix('v1/sales')->group(function () {
     Route::post('/checkout', [SalesController::class, 'checkout'])->name('sales.checkout');
     Route::post('/scan-plate', [PlateScanController::class, 'scan'])->name('sales.scan-plate');
+    Route::get('/summary', [SaleOrderController::class, 'summary'])
+        ->middleware(['permission.team', 'can:report.view'])->name('sales.summary');
 
     Route::prefix('orders')->group(function () {
         Route::get('/', [SaleOrderController::class, 'index'])->name('sales.orders.index');

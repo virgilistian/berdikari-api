@@ -55,6 +55,7 @@ class SaleOrderController extends Controller
     {
         $data = $request->validate([
             'business_id'         => 'required|uuid',
+            'client_uuid'         => 'nullable|uuid',
             'action'              => 'nullable|in:hold,complete',
             'items'               => 'required|array|min:1',
             'items.*.product_id'  => 'required|uuid',
@@ -77,6 +78,29 @@ class SaleOrderController extends Controller
             'message' => $order->status === 'open' ? 'Pesanan disimpan.' : 'Pesanan selesai.',
             'data'    => $order,
         ], 201);
+    }
+
+    /**
+     * Ringkasan penjualan (dashboard & laporan)
+     *
+     * Agregasi penjualan pada rentang tanggal `from`–`to` (Y-m-d, default hari
+     * ini): total penjualan, jumlah transaksi, rata-rata nota, penjualan
+     * harian, produk terlaris, dan rincian metode pembayaran.
+     */
+    public function summary(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from' => 'nullable|date_format:Y-m-d',
+            'to'   => 'nullable|date_format:Y-m-d|after_or_equal:from',
+        ]);
+
+        return response()->json([
+            'data' => $this->service->summary(
+                $this->businessId($request),
+                $request->input('from'),
+                $request->input('to'),
+            ),
+        ]);
     }
 
     /**

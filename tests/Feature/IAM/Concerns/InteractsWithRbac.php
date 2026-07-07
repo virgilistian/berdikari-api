@@ -91,4 +91,16 @@ trait InteractsWithRbac
     {
         return $user->createToken('test')->plainTextToken;
     }
+
+    /**
+     * Act with a different bearer token within the same test. The sanctum
+     * guard caches the first resolved user for the whole test case, so the
+     * guards must be flushed before switching identities.
+     */
+    protected function actingWithToken(string $token): static
+    {
+        app('auth')->forgetGuards();
+
+        return $this->withToken($token);
+    }
 }
