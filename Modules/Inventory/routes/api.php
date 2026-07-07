@@ -16,11 +16,19 @@ use Modules\Inventory\Http\Controllers\DailyStockController;
 */
 
 Route::prefix('v1/inventory')->middleware('auth:sanctum')->group(function () {
-    Route::apiResource('/', InventoryController::class)->only(['index', 'show']);
+    Route::get('/', [InventoryController::class, 'index']);
+    Route::get('summary', [InventoryController::class, 'summary']);
+    Route::get('low-stock', [InventoryController::class, 'lowStock']);
+    Route::post('receive', [InventoryController::class, 'receive']);
+    Route::post('adjust', [InventoryController::class, 'adjust']);
 
     Route::prefix('daily-stock')->group(function () {
         Route::get('{date}', [DailyStockController::class, 'show']);
         Route::post('open', [DailyStockController::class, 'open']);
         Route::post('close', [DailyStockController::class, 'close']);
     });
+
+    Route::get('{id}', [InventoryController::class, 'show']);
+    Route::get('{id}/movements', [InventoryController::class, 'movements']);
+    Route::put('{id}/min-stock', [InventoryController::class, 'setMinStock']);
 });

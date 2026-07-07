@@ -3,7 +3,9 @@
 namespace Modules\Catalog\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Catalog\Models\Category;
 
 /**
  * @tags Catalog — Kategori
@@ -14,65 +16,69 @@ class CategoryController extends Controller
      * Daftar kategori
      *
      * Mengembalikan semua kategori produk dalam bisnis pengguna.
-     *
-     * @response 200 {"data": [{"id": "uuid", "name": "Minuman", "created_at": "2024-01-01T00:00:00+00:00"}]}
      */
-    public function index()
+    public function index(): JsonResponse
     {
-        //
-
-        return response()->json([]);
+        return response()->json([
+            'data' => Category::withCount('products')->orderBy('name')->get(),
+        ]);
     }
 
     /**
      * Buat kategori baru
-     *
-     * @response 201 {"data": {"id": "uuid", "name": "Minuman"}}
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        //
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
 
-        return response()->json([]);
+        $category = Category::create($data);
+
+        return response()->json([
+            'message' => 'Kategori berhasil dibuat.',
+            'data'    => $category,
+        ], 201);
     }
 
     /**
      * Detail kategori
-     *
-     * @response 200 {"data": {"id": "uuid", "name": "Minuman"}}
-     * @response 404 {"message": "Not found."}
      */
-    public function show($id)
+    public function show(string $id): JsonResponse
     {
-        //
+        $category = Category::withCount('products')->findOrFail($id);
 
-        return response()->json([]);
+        return response()->json(['data' => $category]);
     }
 
     /**
      * Perbarui kategori
-     *
-     * @response 200 {"data": {"id": "uuid", "name": "Minuman Updated"}}
-     * @response 404 {"message": "Not found."}
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, string $id): JsonResponse
     {
-        //
+        $category = Category::findOrFail($id);
 
-        return response()->json([]);
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $category->update($data);
+
+        return response()->json([
+            'message' => 'Kategori berhasil diperbarui.',
+            'data'    => $category,
+        ]);
     }
 
     /**
      * Hapus kategori
-     *
-     * @response 200 {"message": "Kategori berhasil dihapus."}
-     * @response 404 {"message": "Not found."}
      */
-    public function destroy($id)
+    public function destroy(string $id): JsonResponse
     {
-        //
+        $category = Category::findOrFail($id);
+        $category->delete();
 
-        return response()->json([]);
+        return response()->json(['message' => 'Kategori berhasil dihapus.']);
     }
 }
 

@@ -4,10 +4,7 @@ namespace Modules\Sales\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\Sales\Models\SaleOrder;
-use Modules\Sales\Models\SaleOrderItem;
-use Modules\Sales\Events\SaleOrderCompleted;
-use Illuminate\Support\Facades\DB;
+use Modules\Sales\Services\SalesService;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -15,86 +12,67 @@ use Illuminate\Support\Facades\Auth;
  */
 class SalesController extends Controller
 {
+    public function __construct(private SalesService $service) {}
+
     /**
      * Checkout POS
      *
-     * Memproses transaksi penjualan dari kasir (Point of Sale).
-     * Setelah checkout berhasil, event `SaleOrderCompleted` dikirim untuk
-     * memperbarui stok inventori secara otomatis.
+     * Memproses transaksi penjualan tunai dari kasir (Point of Sale).
+     * Membuat pesanan berstatus `completed` dan langsung lunas. Setelah berhasil,
+     * event `SaleOrderCompleted` dan `SalePaymentReceived` dikirim untuk memperbarui
+     * stok inventori dan mencatat pemasukan di modul Keuangan secara otomatis.
      *
      * @response 201 {
      *   "message": "Checkout successful",
      *   "order": {
      *     "id": "uuid",
-     *     "business_id": "uuid",
-     *     "user_id": "uuid",
+     *     "order_no": "NOTA-260707-0001",
      *     "status": "completed",
+     *     "payment_status": "paid",
      *     "total_amount": 25000,
-     *     "items": [
-     *       {
-     *         "id": "uuid",
-     *         "product_id": "uuid",
-     *         "quantity": 2,
-     *         "unit_price": 5000,
-     *         "subtotal": 10000
-     *       }
-     *     ]
+     *     "paid_amount": 25000,
+     *     "change_amount": 0
      *   }
      * }
      * @response 422 {"message": "Validation failed", "errors": {"items": ["The items field is required."]}}
-     * @response 500 {"message": "Checkout failed", "error": "Database error detail"}
      */
     public function checkout(Request $request)
     {
-        $request->validate([
-            'business_id' => 'required|uuid',
-            'items' => 'required|array|min:1',
+        $validated = $request->validate([
+            'business_id'        => 'required|uuid',
+            'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|uuid',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.quantity'   => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
+            'paid'               => 'nullable|numeric|min:0',
+            'method'             => 'nullable|string|max:30',
+            'customer_name'      => 'nullable|string|max:255',
+            'note'               => 'nullable|string|max:255',
         ]);
 
         try {
-            DB::beginTransaction();
+            $businessId = Auth::user()?->business_id ?? $validated['business_id'];
+            $total = collect($validated['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
 
-            $totalAmount = collect($request->items)->sum(function($item) {
-                return $item['quantity'] * $item['unit_price'];
-            });
-
-            // Create Order
-            $order = SaleOrder::create([
-                'business_id' => $request->business_id,
-                'user_id' => Auth::id(), // Can be null if not using Auth
-                'status' => 'completed',
-                'total_amount' => $totalAmount
+            $order = $this->service->createOrder($businessId, Auth::id(), [
+                'items'         => $validated['items'],
+                'action'        => 'complete',
+                'customer_name' => $validated['customer_name'] ?? null,
+                'note'          => $validated['note'] ?? null,
+                'payments'      => [[
+                    'amount' => $validated['paid'] ?? $total,
+                    'method' => $validated['method'] ?? 'cash',
+                ]],
             ]);
-
-            // Create Order Items
-            foreach ($request->items as $item) {
-                SaleOrderItem::create([
-                    'sale_order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'subtotal' => $item['quantity'] * $item['unit_price']
-                ]);
-            }
-
-            DB::commit();
-
-            // Fire event for Inventory reduction etc.
-            event(new SaleOrderCompleted($order));
 
             return response()->json([
                 'message' => 'Checkout successful',
-                'order' => $order->load('items') // Note: We might need a relationship in SaleOrder model
+                'order'   => $order,
             ], 201);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Checkout failed',
-                'error' => $e->getMessage()
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

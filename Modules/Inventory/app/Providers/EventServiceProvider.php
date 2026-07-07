@@ -14,6 +14,10 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         \Modules\Sales\Events\SaleOrderCompleted::class => [
             \Modules\Inventory\Listeners\DeductDailyStockOnSale::class,
+            \Modules\Inventory\Listeners\DeductInventoryOnSale::class,
+        ],
+        \Modules\Sales\Events\SaleOrderRefunded::class => [
+            \Modules\Inventory\Listeners\RestoreInventoryOnRefund::class,
         ],
     ];
 
@@ -22,7 +26,7 @@ class EventServiceProvider extends ServiceProvider
      *
      * @var bool
      */
-    protected static $shouldDiscoverEvents = true;
+    protected static $shouldDiscoverEvents = false;
 
     /**
      * Configure the proper event listeners for email verification.

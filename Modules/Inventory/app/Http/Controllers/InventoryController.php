@@ -3,77 +3,158 @@
 namespace Modules\Inventory\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Inventory\Services\InventoryService;
 
 /**
  * @tags Inventory — Stok Realtime
  */
 class InventoryController extends Controller
 {
+    public function __construct(private InventoryService $service) {}
+
+    /**
+     * Resolve the active business id from the authenticated user (fallback to request).
+     */
+    private function businessId(Request $request): string
+    {
+        return $request->user()?->business_id ?? (string) $request->input('business_id');
+    }
+
     /**
      * Daftar stok realtime
      *
-     * Mengembalikan daftar stok produk secara realtime untuk bisnis pengguna.
-     *
-     * @response 200 {
-     *   "data": [
-     *     {
-     *       "product_id": "uuid",
-     *       "product_name": "Nasi Kucing",
-     *       "current_stock": 32
-     *     }
-     *   ]
-     * }
+     * Mengembalikan daftar stok produk beserta valuasi dan penanda stok menipis.
      */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        return view('inventory::index');
+        return response()->json([
+            'data' => $this->service->list($this->businessId($request)),
+        ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Ringkasan valuasi stok
      *
-     * @hideFromAPIDocumentation
+     * Total produk, total kuantitas, nilai stok (harga beli) dan nilai jual.
      */
-    public function create()
+    public function summary(Request $request): JsonResponse
     {
-        return view('inventory::create');
+        return response()->json([
+            'data' => $this->service->summary($this->businessId($request)),
+        ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Stok menipis
+     *
+     * Daftar produk yang kuantitasnya berada di bawah atau sama dengan ambang batas.
      */
-    public function store(Request $request) {}
+    public function lowStock(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->service->lowStock($this->businessId($request)),
+        ]);
+    }
 
     /**
      * Detail stok produk
      *
-     * @response 200 {"data": {"product_id": "uuid", "product_name": "Nasi Kucing", "current_stock": 32}}
-     * @response 404 {"message": "Not found."}
+     * Menampilkan stok saat ini dan 100 riwayat pergerakan terakhir.
      */
-    public function show($id)
+    public function show(Request $request, string $id): JsonResponse
     {
-        return view('inventory::show');
+        $businessId = $this->businessId($request);
+        $inventory  = $this->service->ensureRecord($businessId, $id);
+
+        return response()->json([
+            'data' => [
+                'stock'     => $this->service->list($businessId)->firstWhere('product_id', $id),
+                'movements' => $this->service->movements($businessId, $id),
+            ],
+        ]);
     }
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @hideFromAPIDocumentation
+     * Riwayat pergerakan stok
      */
-    public function edit($id)
+    public function movements(Request $request, string $id): JsonResponse
     {
-        return view('inventory::edit');
+        return response()->json([
+            'data' => $this->service->movements($this->businessId($request), $id),
+        ]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Stok masuk (pembelian / penerimaan barang)
      */
-    public function update(Request $request, $id) {}
+    public function receive(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => 'required|uuid',
+            'quantity'   => 'required|integer|min:1',
+            'unit_cost'  => 'nullable|numeric|min:0',
+            'reason'     => 'nullable|string|max:255',
+        ]);
+
+        $inventory = $this->service->receive(
+            $this->businessId($request),
+            $data['product_id'],
+            $data['quantity'],
+            $data['unit_cost'] ?? null,
+            $data['reason'] ?? null,
+        );
+
+        return response()->json([
+            'message' => 'Stok masuk berhasil dicatat.',
+            'data'    => $inventory,
+        ], 201);
+    }
 
     /**
-     * Remove the specified resource from storage.
+     * Penyesuaian stok (koreksi / opname)
      */
-    public function destroy($id) {}
+    public function adjust(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => 'required|uuid',
+            'quantity'   => 'required|integer|min:0',
+            'reason'     => 'nullable|string|max:255',
+        ]);
+
+        $inventory = $this->service->adjust(
+            $this->businessId($request),
+            $data['product_id'],
+            $data['quantity'],
+            $data['reason'] ?? null,
+        );
+
+        return response()->json([
+            'message' => 'Stok berhasil disesuaikan.',
+            'data'    => $inventory,
+        ]);
+    }
+
+    /**
+     * Atur ambang batas stok menipis
+     */
+    public function setMinStock(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'min_stock' => 'required|integer|min:0',
+        ]);
+
+        $inventory = $this->service->setMinStock(
+            $this->businessId($request),
+            $id,
+            $data['min_stock'],
+        );
+
+        return response()->json([
+            'message' => 'Ambang batas stok berhasil diperbarui.',
+            'data'    => $inventory,
+        ]);
+    }
 }
 
