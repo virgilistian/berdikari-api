@@ -31,11 +31,15 @@ RUN apk add --no-cache --virtual .pecl-deps autoconf g++ make \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
 WORKDIR /var/www/html
 
 COPY . .
 
-RUN chmod +x /var/www/html/docker/entrypoint.sh
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
+    && chmod -R 775 bootstrap/cache storage \
+    && chmod +x /var/www/html/docker/entrypoint.sh
 
 EXPOSE 8000
 
