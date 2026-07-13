@@ -41,6 +41,8 @@ RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions 
     && chmod -R 775 bootstrap/cache storage \
     && chmod +x /var/www/html/docker/entrypoint.sh
 
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+
 EXPOSE 8000
 
 ENTRYPOINT ["/bin/sh", "-c", "chmod +x /var/www/html/docker/entrypoint.sh && /var/www/html/docker/entrypoint.sh"]
