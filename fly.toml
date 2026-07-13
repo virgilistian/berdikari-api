@@ -21,6 +21,7 @@ primary_region = "sin"
   REDIS_CLIENT = "predis"
   AWS_USE_PATH_STYLE_ENDPOINT = "false"
   AWS_DEFAULT_REGION = "auto"
+  FRONTEND_URL = "https://berdikari-web.pages.dev"
 
 [http_service]
   internal_port = 8000
