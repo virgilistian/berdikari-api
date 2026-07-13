@@ -33,7 +33,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-RUN chmod +x /var/www/html/docker/entrypoint.sh 2>/dev/null || true
+COPY . .
+
+RUN chmod +x /var/www/html/docker/entrypoint.sh
 
 EXPOSE 8000
 

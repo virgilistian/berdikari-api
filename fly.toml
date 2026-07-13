@@ -1,0 +1,41 @@
+app = "berdikari-api"
+primary_region = "sin"
+
+[build]
+
+[env]
+  APP_ENV = "production"
+  APP_DEBUG = "false"
+  APP_LOCALE = "id"
+  APP_FALLBACK_LOCALE = "id"
+  LOG_CHANNEL = "stack"
+  LOG_LEVEL = "error"
+  DB_CONNECTION = "pgsql"
+  SESSION_DRIVER = "redis"
+  BROADCAST_CONNECTION = "log"
+  FILESYSTEM_DISK = "s3"
+  QUEUE_CONNECTION = "redis"
+  CACHE_STORE = "redis"
+  REDIS_CLIENT = "predis"
+  AWS_USE_PATH_STYLE_ENDPOINT = "false"
+  AWS_DEFAULT_REGION = "auto"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/up"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
