@@ -17,7 +17,7 @@
         @foreach($report->entries as $entry)
         <tr>
             <td class="center">{{ $entry->day_number }}</td>
-            <td>{{ $entry->weekday_name }}</td>
+            <td>{{ ucfirst($entry->weekday_name) }}</td>
             <td class="num">{{ number_format((float) $entry->sales, 0, ',', '.') }}</td>
             <td class="num">{{ number_format((float) $entry->tax, 0, ',', '.') }}</td>
         </tr>
