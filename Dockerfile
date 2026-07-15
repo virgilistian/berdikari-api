@@ -7,6 +7,9 @@ RUN apk add --no-cache \
     libxml2-dev \
     icu-dev \
     libzip-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
     zip \
     unzip \
     curl \
@@ -15,6 +18,7 @@ RUN apk add --no-cache \
     shadow
 
 RUN apk add --no-cache --virtual .pecl-deps autoconf g++ make \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
         pdo_pgsql \
@@ -25,6 +29,7 @@ RUN apk add --no-cache --virtual .pecl-deps autoconf g++ make \
         zip \
         intl \
         opcache \
+        gd \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apk del .pecl-deps

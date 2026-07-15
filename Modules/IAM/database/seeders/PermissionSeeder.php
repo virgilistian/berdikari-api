@@ -65,6 +65,14 @@ class PermissionSeeder extends Seeder
 
         // Business settings
         'business.manage',
+
+        // Tax / Pajak
+        'tax.view',
+        'tax.create',
+        'tax.update',
+        'tax.delete',
+        'tax.export',
+        'tax.manage',
     ];
 
     public function run(): void

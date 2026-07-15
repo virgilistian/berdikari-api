@@ -32,6 +32,7 @@ class RolePermissionSeeder extends Seeder
             'leave.view', 'leave.create', 'leave.approve',
             'notification.view',
             'role.assign', 'user.manage', 'business.manage',
+            'tax.view', 'tax.create', 'tax.update', 'tax.delete', 'tax.export', 'tax.manage',
         ],
 
         'business-owner' => [
@@ -45,6 +46,7 @@ class RolePermissionSeeder extends Seeder
             'leave.view', 'leave.create', 'leave.approve',
             'notification.view',
             'role.assign', 'user.manage', 'business.manage',
+            'tax.view', 'tax.create', 'tax.update', 'tax.delete', 'tax.export', 'tax.manage',
         ],
 
         'manager' => [
@@ -58,6 +60,7 @@ class RolePermissionSeeder extends Seeder
             'leave.view', 'leave.create', 'leave.approve',
             'notification.view',
             'role.assign',
+            'tax.view', 'tax.create', 'tax.update', 'tax.export',
         ],
 
         'supervisor' => [
@@ -70,6 +73,7 @@ class RolePermissionSeeder extends Seeder
             'attendance.view', 'attendance.create',
             'leave.view', 'leave.create', 'leave.approve',
             'notification.view',
+            'tax.view',
         ],
 
         'cashier' => [
@@ -104,6 +108,7 @@ class RolePermissionSeeder extends Seeder
             'catalog.view',
             'report.view', 'report.export',
             'notification.view',
+            'tax.view', 'tax.create', 'tax.update', 'tax.export',
         ],
 
         'employee' => [
@@ -123,6 +128,7 @@ class RolePermissionSeeder extends Seeder
             'attendance.view',
             'leave.view',
             'notification.view',
+            'tax.view',
         ],
     ];
 
