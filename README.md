@@ -1,58 +1,87 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Berdikari API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend for **Berdikari**, a mobile-first ERP for Indonesian UMKM (micro/small businesses). Built with Laravel 13, PHP 8.3, and [nwidart/laravel-modules](https://github.com/nWidart/laravel-modules) as a modular monolith. The pilot deployment is an Angkringan (traditional Indonesian street-food stall).
 
-## About Laravel
+The API is stateless (token-based auth via Sanctum) so the same endpoints can serve `berdikari-web` today and a future mobile app.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Modules
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Module | Domain | Status |
+|---|---|---|
+| `Core` | Tenancy (`Tenantable`), shared interfaces/utilities, in-app notifications | Active |
+| `IAM` | Auth, RBAC (`spatie/laravel-permission`), token generation | Active |
+| `Catalog` | Products, categories, variants | Active |
+| `Inventory` | Stock management, daily stock opname, stock movements, valuation | Active |
+| `Sales` | POS checkout, orders, cashier shifts, payments, refunds | Active |
+| `Finance` | Cash flow (pemasukan/pengeluaran), summary | Active |
+| `HR` | Employee CRUD, attendance, leave requests & approvals | Active |
+| `Purchasing` | Purchase orders to suppliers | Planned |
+| `CRM` | Customer data, loyalty points | Planned |
+| `Production` | Angkringan production recommendation logic | Planned |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Each module lives under `Modules/<Name>/` with its own `routes/api.php`, `app/Http/Controllers`, `app/Services`, `app/Models`, `app/Events`, `app/Providers`, and `database/migrations`. Modules do not query each other's tables directly — cross-module reads go through Service Contracts, side effects through the Event Dispatcher.
 
-## Learning Laravel
+## Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Everything runs in Docker. Do not rely on host-installed PHP/Composer versions — `docker-compose.yml` (repo root) is the source of truth for services, ports, and credentials.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Services: PostgreSQL 16, Redis 7, MinIO, Mailpit.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Getting started
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+From the repo root:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+docker compose up -d
+docker compose exec api composer install
+docker compose exec api php artisan migrate --seed
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+The API is served at `http://localhost:8000` (direct) or `http://berdikari.test` via nginx (requires a matching `/etc/hosts` entry).
 
-## Contributing
+Run any `artisan`/`composer` command inside the container:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+docker compose exec api php artisan <command>
+docker compose exec api composer <command>
+```
 
-## Code of Conduct
+## Testing
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Feature tests live in `tests/Feature/` (subdirs per module: `IAM/`, `Finance/`, `HR/`, `Inventory/`, `Sales/`, `Catalog/`). Run against an in-memory SQLite database — never run the suite without these flags, or `RefreshDatabase` will wipe the dev Postgres database:
 
-## Security Vulnerabilities
+```bash
+docker exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_HOST= -e DB_URL= berdikari-api-1 php artisan test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Deployment (Fly.io)
 
-## License
+Production runs on [Fly.io](https://fly.io) (Docker) with Supabase (Postgres), Upstash (Redis), and Cloudflare R2 (file storage). Config lives in `fly.toml`; app secrets (DB, Redis, R2, `APP_KEY`, etc.) are set via `fly secrets set`, not committed.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+# one-time setup
+fly auth login
+fly launch --name berdikari-api --region sin --no-deploy
+fly secrets set DB_HOST=... DB_PASSWORD=... REDIS_HOST=... AWS_ACCESS_KEY_ID=... # see docs/15-deploy-api.md for the full list
+
+# deploy
+fly deploy
+
+# verify
+curl https://berdikari-api.fly.dev/api/v1/health
+fly logs -a berdikari-api
+```
+
+`entrypoint.sh` runs `migrate --force` and `db:seed` automatically on container start. Pushes to `main` touching `berdikari-api/**` also deploy via the `.github/workflows/deploy-api.yml` GitHub Actions workflow (requires the `FLY_API_TOKEN` repo secret).
+
+Rollback: `fly releases -a berdikari-api` to list versions, then `fly deploy --image <image-id>`.
+
+Full step-by-step guide (Bahasa Indonesia), including external service setup: [`docs/15-deploy-api.md`](../docs/15-deploy-api.md).
+
+## Authorization
+
+Access control is database-driven RBAC (deny-by-default, least-privilege), scoped per `business_id`. Permissions follow `resource.action` (e.g. `finance.view`, `pos.open`). New permissions are defined in `Modules/IAM/database/seeders/PermissionSeeder.php` — never hardcoded elsewhere. See `docs/06-api-specification.md` and `docs/10-security.md` for the full contract.
+
+## Docs
+
+Architecture, database design, event design, and deployment specs live in [`../docs`](../docs).
