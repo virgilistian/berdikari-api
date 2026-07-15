@@ -23,9 +23,11 @@ Route::prefix('v1/inventory')->middleware('auth:sanctum')->group(function () {
     Route::post('adjust', [InventoryController::class, 'adjust']);
 
     Route::prefix('daily-stock')->group(function () {
+        Route::get('products', [DailyStockController::class, 'products']);
         Route::get('{date}', [DailyStockController::class, 'show']);
         Route::post('open', [DailyStockController::class, 'open']);
         Route::post('close', [DailyStockController::class, 'close']);
+        Route::post('adjust', [DailyStockController::class, 'adjust']);
     });
 
     Route::get('{id}', [InventoryController::class, 'show']);

@@ -30,6 +30,7 @@ class RolePermissionSeeder extends Seeder
             'employee.view', 'employee.create', 'employee.update',
             'attendance.view', 'attendance.create',
             'leave.view', 'leave.create', 'leave.approve',
+            'notification.view',
             'role.assign', 'user.manage', 'business.manage',
         ],
 
@@ -42,6 +43,7 @@ class RolePermissionSeeder extends Seeder
             'employee.view', 'employee.create', 'employee.update',
             'attendance.view', 'attendance.create',
             'leave.view', 'leave.create', 'leave.approve',
+            'notification.view',
             'role.assign', 'user.manage', 'business.manage',
         ],
 
@@ -54,6 +56,7 @@ class RolePermissionSeeder extends Seeder
             'employee.view', 'employee.create', 'employee.update',
             'attendance.view', 'attendance.create',
             'leave.view', 'leave.create', 'leave.approve',
+            'notification.view',
             'role.assign',
         ],
 
@@ -66,6 +69,7 @@ class RolePermissionSeeder extends Seeder
             'employee.view',
             'attendance.view', 'attendance.create',
             'leave.view', 'leave.create', 'leave.approve',
+            'notification.view',
         ],
 
         'cashier' => [
@@ -74,6 +78,7 @@ class RolePermissionSeeder extends Seeder
             'inventory.view',
             'attendance.create',
             'leave.create',
+            'notification.view',
         ],
 
         'kitchen-staff' => [
@@ -81,6 +86,7 @@ class RolePermissionSeeder extends Seeder
             'catalog.view',
             'attendance.create',
             'leave.create',
+            'notification.view',
         ],
 
         'inventory-staff' => [
@@ -88,6 +94,7 @@ class RolePermissionSeeder extends Seeder
             'catalog.view',
             'attendance.create',
             'leave.create',
+            'notification.view',
         ],
 
         'finance' => [
@@ -96,12 +103,14 @@ class RolePermissionSeeder extends Seeder
             'inventory.view',
             'catalog.view',
             'report.view', 'report.export',
+            'notification.view',
         ],
 
         'employee' => [
             'catalog.view',
             'attendance.create',
             'leave.create',
+            'notification.view',
         ],
 
         'viewer' => [
@@ -113,6 +122,7 @@ class RolePermissionSeeder extends Seeder
             'employee.view',
             'attendance.view',
             'leave.view',
+            'notification.view',
         ],
     ];
 

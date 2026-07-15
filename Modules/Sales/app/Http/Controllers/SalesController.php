@@ -50,30 +50,23 @@ class SalesController extends Controller
             'note'               => 'nullable|string|max:255',
         ]);
 
-        try {
-            $businessId = Auth::user()?->business_id ?? $validated['business_id'];
-            $total = collect($validated['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
+        $businessId = Auth::user()?->business_id ?? $validated['business_id'];
+        $total = collect($validated['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
 
-            $order = $this->service->createOrder($businessId, Auth::id(), [
-                'items'         => $validated['items'],
-                'action'        => 'complete',
-                'customer_name' => $validated['customer_name'] ?? null,
-                'note'          => $validated['note'] ?? null,
-                'payments'      => [[
-                    'amount' => $validated['paid'] ?? $total,
-                    'method' => $validated['method'] ?? 'cash',
-                ]],
-            ]);
+        $order = $this->service->createOrder($businessId, Auth::id(), [
+            'items'         => $validated['items'],
+            'action'        => 'complete',
+            'customer_name' => $validated['customer_name'] ?? null,
+            'note'          => $validated['note'] ?? null,
+            'payments'      => [[
+                'amount' => $validated['paid'] ?? $total,
+                'method' => $validated['method'] ?? 'cash',
+            ]],
+        ]);
 
-            return response()->json([
-                'message' => 'Checkout successful',
-                'order'   => $order,
-            ], 201);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'Checkout failed',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'Checkout successful',
+            'order'   => $order,
+        ], 201);
     }
 }

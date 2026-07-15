@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Core\Traits\Tenantable;
 
 class SaleOrder extends Model
@@ -16,6 +17,7 @@ class SaleOrder extends Model
         'business_id',
         'order_no',
         'client_uuid',
+        'cashier_shift_id',
         'user_id',
         'status',
         'payment_status',
@@ -48,6 +50,11 @@ class SaleOrder extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SalePayment::class);
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(CashierShift::class, 'cashier_shift_id');
     }
 
     /**

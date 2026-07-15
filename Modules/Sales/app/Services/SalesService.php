@@ -6,12 +6,29 @@ use Illuminate\Support\Facades\DB;
 use Modules\Sales\Events\SaleOrderCompleted;
 use Modules\Sales\Events\SaleOrderRefunded;
 use Modules\Sales\Events\SalePaymentReceived;
+use Modules\Sales\Models\CashierShift;
 use Modules\Sales\Models\SaleOrder;
 use Modules\Sales\Models\SaleOrderItem;
 use Modules\Sales\Models\SalePayment;
 
 class SalesService
 {
+    /**
+     * Resolve the active shift for a user (if any).
+     */
+    private function resolveActiveShift(string $businessId, ?string $userId): ?CashierShift
+    {
+        if ($userId === null) {
+            return null;
+        }
+
+        return CashierShift::where('business_id', $businessId)
+            ->where('user_id', $userId)
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
+    }
+
     /**
      * Create a sale order.
      *
@@ -42,19 +59,23 @@ class SalesService
         return DB::transaction(function () use ($businessId, $userId, $data, $action) {
             $total = collect($data['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
 
+            // Link to active shift if available
+            $activeShift = $this->resolveActiveShift($businessId, $userId);
+
             $order = SaleOrder::create([
-                'business_id'    => $businessId,
-                'order_no'       => $this->generateOrderNo($businessId),
-                'client_uuid'    => $data['client_uuid'] ?? null,
-                'user_id'        => $userId,
-                'status'         => $action === 'hold' ? 'open' : 'completed',
-                'payment_status' => 'unpaid',
-                'total_amount'   => $total,
-                'paid_amount'    => 0,
-                'change_amount'  => 0,
-                'customer_name'  => $data['customer_name'] ?? null,
-                'note'           => $data['note'] ?? null,
-                'completed_at'   => $action === 'hold' ? null : now(),
+                'business_id'      => $businessId,
+                'order_no'         => $this->generateOrderNo($businessId),
+                'client_uuid'      => $data['client_uuid'] ?? null,
+                'cashier_shift_id' => $activeShift?->id,
+                'user_id'          => $userId,
+                'status'           => $action === 'hold' ? 'open' : 'completed',
+                'payment_status'   => 'unpaid',
+                'total_amount'     => $total,
+                'paid_amount'      => 0,
+                'change_amount'    => 0,
+                'customer_name'    => $data['customer_name'] ?? null,
+                'note'             => $data['note'] ?? null,
+                'completed_at'     => $action === 'hold' ? null : now(),
             ]);
 
             foreach ($data['items'] as $item) {

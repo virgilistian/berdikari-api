@@ -1,15 +1,25 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Sales\Http\Controllers\CashierShiftController;
 use Modules\Sales\Http\Controllers\PlateScanController;
 use Modules\Sales\Http\Controllers\SaleOrderController;
 use Modules\Sales\Http\Controllers\SalesController;
 
-Route::middleware(['auth:sanctum'])->prefix('v1/sales')->group(function () {
+Route::middleware(['auth:sanctum', 'permission.team'])->prefix('v1/sales')->group(function () {
     Route::post('/checkout', [SalesController::class, 'checkout'])->name('sales.checkout');
     Route::post('/scan-plate', [PlateScanController::class, 'scan'])->name('sales.scan-plate');
     Route::get('/summary', [SaleOrderController::class, 'summary'])
-        ->middleware(['permission.team', 'can:report.view'])->name('sales.summary');
+        ->middleware('can:report.view')->name('sales.summary');
+
+    // Shift kasir
+    Route::prefix('shifts')->group(function () {
+        Route::get('active', [CashierShiftController::class, 'active'])->name('sales.shifts.active');
+        Route::get('/', [CashierShiftController::class, 'index'])->name('sales.shifts.index');
+        Route::post('open', [CashierShiftController::class, 'open'])->name('sales.shifts.open');
+        Route::get('{id}', [CashierShiftController::class, 'show'])->name('sales.shifts.show');
+        Route::post('{id}/close', [CashierShiftController::class, 'close'])->name('sales.shifts.close');
+    });
 
     Route::prefix('orders')->group(function () {
         Route::get('/', [SaleOrderController::class, 'index'])->name('sales.orders.index');

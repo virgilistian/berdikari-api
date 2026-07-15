@@ -35,10 +35,14 @@ Route::middleware(['auth:sanctum', 'permission.team'])->prefix('v1/hr')->group(f
         ->middleware('can:leave.view')->name('hr.leaves.index');
     Route::get('leaves/mine', [LeaveController::class, 'mine'])
         ->middleware('can:leave.create')->name('hr.leaves.mine');
+    Route::get('leaves/quota', [LeaveController::class, 'quota'])
+        ->middleware('can:leave.create')->name('hr.leaves.quota');
     Route::post('leaves', [LeaveController::class, 'store'])
         ->middleware('can:leave.create')->name('hr.leaves.store');
     Route::post('leaves/{id}/approve', [LeaveController::class, 'approve'])
         ->middleware('can:leave.approve')->name('hr.leaves.approve');
     Route::post('leaves/{id}/reject', [LeaveController::class, 'reject'])
         ->middleware('can:leave.approve')->name('hr.leaves.reject');
+    Route::get('employees/{id}/quota', [LeaveController::class, 'employeeQuota'])
+        ->middleware('can:employee.view')->name('hr.employees.quota');
 });

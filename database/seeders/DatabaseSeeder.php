@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             \Modules\IAM\Database\Seeders\IAMDatabaseSeeder::class,
+            \Modules\Finance\Database\Seeders\FinanceDatabaseSeeder::class,
         ]);
     }
 }

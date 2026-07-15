@@ -92,6 +92,45 @@ class LeaveController extends Controller
         return $this->decide($request, $id, 'rejected', 'Pengajuan cuti ditolak.');
     }
 
+    /**
+     * Kuota cuti saya
+     *
+     * Mengembalikan ringkasan kuota cuti tahunan karyawan untuk tahun tertentu.
+     *
+     * @queryParam year integer Tahun (default: tahun ini). Example: 2026
+     */
+    public function quota(Request $request): JsonResponse
+    {
+        $employee = $this->employees->findByUser($this->businessId(), (string) Auth::id());
+
+        abort_if($employee === null, 422, 'Akun Anda belum terhubung dengan data karyawan. Hubungi pemilik usaha.');
+
+        $year = (int) $request->input('year', now()->year);
+
+        $summary = $this->service->quotaSummary($employee, $year);
+
+        return response()->json(['data' => $summary]);
+    }
+
+    /**
+     * Kuota cuti karyawan (untuk manajer)
+     *
+     * @queryParam year integer Tahun. Example: 2026
+     */
+    public function employeeQuota(Request $request, string $employeeId): JsonResponse
+    {
+        $this->authorize('employee.view');
+
+        $employee = \Modules\HR\Models\Employee::where('business_id', $this->businessId())
+            ->findOrFail($employeeId);
+
+        $year = (int) $request->input('year', now()->year);
+
+        $summary = $this->service->quotaSummary($employee, $year);
+
+        return response()->json(['data' => $summary]);
+    }
+
     private function decide(Request $request, string $id, string $decision, string $message): JsonResponse
     {
         $data = $request->validate(['note' => 'nullable|string|max:255']);

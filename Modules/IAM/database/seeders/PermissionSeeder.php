@@ -56,6 +56,9 @@ class PermissionSeeder extends Seeder
         'leave.create',
         'leave.approve',
 
+        // Notifications / Notifikasi
+        'notification.view',
+
         // Roles & Users
         'role.assign',
         'user.manage',

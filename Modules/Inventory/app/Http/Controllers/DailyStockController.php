@@ -121,4 +121,55 @@ class DailyStockController extends Controller
             'data'    => $recap,
         ]);
     }
+
+    /**
+     * Daftar produk untuk stok harian
+     *
+     * Mengembalikan semua produk aktif dengan harga dan stok tersedia,
+     * siap untuk input stok harian.
+     *
+     * @queryParam business_id string required UUID bisnis. Example: uuid
+     */
+    public function products(Request $request)
+    {
+        $request->validate(['business_id' => 'required|uuid']);
+
+        $products = $this->service->getProductsForStockInput($request->business_id);
+
+        return response()->json(['data' => $products]);
+    }
+
+    /**
+     * Sesuaikan stok harian
+     *
+     * Menambahkan penyesuaian stok manual (penambahan atau pengurangan).
+     *
+     * @bodyParam business_id string required UUID bisnis. Example: uuid
+     * @bodyParam date string required Tanggal (Y-m-d). Example: 2026-07-07
+     * @bodyParam product_id string required UUID produk. Example: uuid
+     * @bodyParam adjustment_qty integer required Jumlah penyesuaian (positif/negatif). Example: -5
+     * @bodyParam adjustment_note string Alasan penyesuaian. Example: Rusak / terbuang
+     *
+     * @response 200 {"message":"Penyesuaian stok berhasil.","data":{...}}
+     */
+    public function adjust(Request $request)
+    {
+        $request->validate([
+            'business_id'     => 'required|uuid',
+            'date'            => 'required|date_format:Y-m-d',
+            'product_id'      => 'required|uuid',
+            'adjustment_qty'  => 'required|integer',
+            'adjustment_note' => 'nullable|string|max:255',
+        ]);
+
+        $stock = $this->service->adjustStock(
+            $request->business_id,
+            $request->date,
+            $request->product_id,
+            (int) $request->adjustment_qty,
+            $request->adjustment_note
+        );
+
+        return response()->json(['message' => 'Penyesuaian stok berhasil.', 'data' => $stock]);
+    }
 }
