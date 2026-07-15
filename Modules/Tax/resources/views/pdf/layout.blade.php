@@ -136,13 +136,11 @@
         <tr>
             <td width="50%">
                 Diterima tgl,……………………………
-                <div class="sign-space"></div>
                 &nbsp;<br>
                 Petugas Bapenda Karawang
             </td>
             <td width="50%">
                 Karawang,……………………………………..
-                <div class="sign-space"></div>
                 &nbsp;<br>
                 Pimpinan /Manager
                 <div class="sign-space">

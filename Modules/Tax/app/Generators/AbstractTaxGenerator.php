@@ -28,6 +28,11 @@ abstract class AbstractTaxGenerator implements TaxGeneratorInterface
      */
     abstract public function drivingValueKey(): string;
 
+    public function drivingValueStep(): int
+    {
+        return 1;
+    }
+
     /**
      * Build a full entry row from a rolled (or zeroed) driving value.
      */

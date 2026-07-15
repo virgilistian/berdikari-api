@@ -23,6 +23,11 @@ class RestaurantTaxGenerator extends AbstractTaxGenerator
         return 'sales';
     }
 
+    public function drivingValueStep(): int
+    {
+        return 1000;
+    }
+
     protected function driveValueRange(TaxGenerationConfig $config): array
     {
         return [
@@ -31,9 +36,18 @@ class RestaurantTaxGenerator extends AbstractTaxGenerator
         ];
     }
 
+    /**
+     * Rounds to the nearest clean thousand — restaurant sales figures are
+     * never displayed/stored as raw rupiah (e.g. 342323), always 342000.
+     */
+    private function roundToThousand(float $value): int
+    {
+        return (int) (round($value / 1000) * 1000);
+    }
+
     protected function buildEntryFromValue(DayInfo $day, float $value, TaxGenerationConfig $config): array
     {
-        $sales = round($value);
+        $sales = $this->roundToThousand($value);
         $tax = round($sales * $config->taxPercentage());
 
         return [
@@ -54,7 +68,7 @@ class RestaurantTaxGenerator extends AbstractTaxGenerator
     public function recompute(array $entries, TaxGenerationConfig $config): GeneratedReportDraft
     {
         foreach ($entries as &$entry) {
-            $sales = round((float) ($entry['sales'] ?? 0));
+            $sales = $this->roundToThousand((float) ($entry['sales'] ?? 0));
             $entry['sales'] = $sales;
             $entry['tax'] = round($sales * $config->taxPercentage());
         }

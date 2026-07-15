@@ -41,6 +41,13 @@ interface TaxGeneratorInterface
     public function recompute(array $entries, TaxGenerationConfig $config): GeneratedReportDraft;
 
     /**
+     * Whole-unit increment TaxNormalizationService's cap-trim loop decrements
+     * the driving value by on each iteration (e.g. 1000 for a Rupiah sales
+     * figure that must stay a clean thousand; 1 for a ticket-count value).
+     */
+    public function drivingValueStep(): int;
+
+    /**
      * Blade view name for the PDF, e.g. 'tax::pdf.restaurant'.
      */
     public function pdfView(): string;

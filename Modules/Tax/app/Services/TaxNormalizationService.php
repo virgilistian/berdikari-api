@@ -45,6 +45,7 @@ class TaxNormalizationService
 
         // Rounding can still leave the sum marginally over cap — trim the
         // largest non-zero driving value by one unit at a time until compliant.
+        $step = $generator->drivingValueStep();
         $iterations = 0;
         while ($draft->totalTax() > $cap && $iterations < self::MAX_TRIM_ITERATIONS) {
             $entries = $draft->entries;
@@ -63,7 +64,7 @@ class TaxNormalizationService
                 break; // every driving value is already zero; cap cannot be satisfied further
             }
 
-            $entries[$largestIndex][$key] = max(0, (int) $entries[$largestIndex][$key] - 1);
+            $entries[$largestIndex][$key] = max(0, (int) $entries[$largestIndex][$key] - $step);
             $draft = $generator->recompute($entries, $config);
             $iterations++;
         }
