@@ -59,6 +59,47 @@ class FinanceLedgerTest extends TestCase
             ->assertJsonValidationErrors(['type', 'amount', 'category']);
     }
 
+    public function test_can_backdate_transaction_date(): void
+    {
+        $pastDate = now()->subDays(5)->toDateString();
+
+        $response = $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'income', 'amount' => 50000, 'category' => 'Penjualan', 'occurred_at' => $pastDate,
+        ])->assertCreated();
+
+        $entry = \Modules\Finance\Models\FinanceEntry::findOrFail($response->json('data.id'));
+        $this->assertSame($pastDate, $entry->occurred_at->toDateString());
+        $this->assertNotSame($pastDate, $entry->created_at->toDateString());
+    }
+
+    public function test_rejects_future_transaction_date(): void
+    {
+        $futureDate = now()->addDay()->toDateString();
+
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'expense', 'amount' => 20000, 'category' => 'Belanja Bahan', 'occurred_at' => $futureDate,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['occurred_at']);
+    }
+
+    public function test_filters_and_summary_use_transaction_date_not_creation_date(): void
+    {
+        $pastDate = now()->subDays(3)->toDateString();
+
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'income', 'amount' => 75000, 'category' => 'Penjualan', 'occurred_at' => $pastDate,
+        ])->assertCreated();
+
+        $this->withToken($this->token)->getJson('/api/v1/finance?from=' . now()->toDateString())
+            ->assertOk()->assertJsonCount(0, 'data');
+
+        $this->withToken($this->token)->getJson("/api/v1/finance?from={$pastDate}&to={$pastDate}")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        $this->withToken($this->token)->getJson("/api/v1/finance/summary?from={$pastDate}&to={$pastDate}")
+            ->assertOk()
+            ->assertJsonPath('data.total_income', 75000);
+    }
+
     public function test_automatic_sale_income_cannot_be_deleted_manually(): void
     {
         $entry = \Modules\Finance\Models\FinanceEntry::create([

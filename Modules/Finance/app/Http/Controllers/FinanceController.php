@@ -63,8 +63,10 @@ class FinanceController extends Controller
             'amount'      => 'required|numeric|min:0',
             'category'    => 'required|string|max:100',
             'note'        => 'nullable|string|max:1000',
-            'occurred_at' => 'nullable|date',
+            'occurred_at' => 'nullable|date|before_or_equal:today',
             'business_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::in([$this->businessId($request)])],
+        ], [
+            'occurred_at.before_or_equal' => 'Tanggal transaksi tidak boleh di masa depan.',
         ]);
 
         $entry = FinanceEntry::create([
