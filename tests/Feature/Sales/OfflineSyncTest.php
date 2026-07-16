@@ -23,7 +23,12 @@ class OfflineSyncTest extends TestCase
     {
         parent::setUp();
         $this->seedPermissions();
-        $this->token = $this->tokenFor($this->makeUser(['report.view'], 'cashier'));
+        $this->token = $this->tokenFor($this->makeUser(['report.view', 'pos.open', 'pos.close'], 'cashier'));
+
+        // A cashier must have an open shift before any transaction.
+        $this->actingWithToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 100000,
+        ])->assertCreated();
     }
 
     private function product(string $name, float $price): string

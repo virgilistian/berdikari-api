@@ -84,7 +84,9 @@ class DailyStockService
 
             foreach ($stocks as $stock) {
                 $stock->update([
-                    'closing_qty' => max(0, $stock->opening_qty - $stock->sold_qty),
+                    // Mirrors remaining_qty in getDay(): adjustments (e.g. cashier's
+                    // physical-count correction) must be reflected in the final tally.
+                    'closing_qty' => max(0, $stock->opening_qty + $stock->adjustment_qty - $stock->sold_qty),
                     'status'      => 'closed',
                 ]);
             }

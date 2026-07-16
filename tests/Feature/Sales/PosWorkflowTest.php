@@ -17,7 +17,15 @@ class PosWorkflowTest extends TestCase
     {
         parent::setUp();
         $this->seedPermissions();
-        $this->token = $this->tokenFor($this->makeUser([], 'cashier'));
+        $this->token = $this->tokenFor($this->makeUser(
+            ['pos.view', 'pos.open', 'pos.close', 'pos.expense', 'inventory.view', 'inventory.create', 'inventory.update', 'catalog.view', 'catalog.create'],
+            'cashier'
+        ));
+
+        // A cashier must have an open shift before any transaction.
+        $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 100000,
+        ])->assertCreated();
     }
 
     private function product(string $name, float $price): string

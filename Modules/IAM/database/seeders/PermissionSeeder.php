@@ -18,6 +18,7 @@ class PermissionSeeder extends Seeder
         'pos.view',
         'pos.open',
         'pos.close',
+        'pos.expense',
 
         // Finance / Keuangan
         'finance.view',

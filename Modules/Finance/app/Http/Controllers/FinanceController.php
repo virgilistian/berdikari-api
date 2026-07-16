@@ -48,6 +48,14 @@ class FinanceController extends Controller
             $query->where('business_id', $request->business_id);
         }
 
+        if ($request->filled('source_type')) {
+            $query->where('source_type', $request->source_type);
+        }
+
+        if ($request->filled('source_id')) {
+            $query->where('source_id', $request->source_id);
+        }
+
         return response()->json([
             'data' => $query->orderByDesc('occurred_at')->limit(200)->get(),
         ]);
@@ -55,6 +63,9 @@ class FinanceController extends Controller
 
     /**
      * Tambah pemasukan / pengeluaran
+     *
+     * `shift_id` opsional: menandai pengeluaran operasional yang dicatat kasir
+     * selama shift aktif (mis. belanja mendadak). Hanya berlaku untuk `type=expense`.
      */
     public function store(Request $request): JsonResponse
     {
@@ -65,14 +76,31 @@ class FinanceController extends Controller
             'note'        => 'nullable|string|max:1000',
             'occurred_at' => 'nullable|date|before_or_equal:today',
             'business_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::in([$this->businessId($request)])],
+            'shift_id'    => 'nullable|uuid',
         ], [
             'occurred_at.before_or_equal' => 'Tanggal transaksi tidak boleh di masa depan.',
         ]);
 
+        if (! empty($data['shift_id']) && $data['type'] !== 'expense') {
+            abort(422, 'Transaksi yang tertaut ke shift kasir hanya untuk pengeluaran.');
+        }
+
+        // Deny-by-default: a shift-linked expense needs pos.expense; any other
+        // manual entry needs the broader finance.create permission.
+        abort_unless(
+            $request->user()?->can(! empty($data['shift_id']) ? 'pos.expense' : 'finance.create'),
+            403,
+            'Anda tidak memiliki izin untuk mencatat transaksi ini.'
+        );
+
         $entry = FinanceEntry::create([
-            ...$data,
             'business_id' => $data['business_id'] ?? $this->businessId($request),
-            'source_type' => 'manual',
+            'type'        => $data['type'],
+            'amount'      => $data['amount'],
+            'category'    => $data['category'],
+            'note'        => $data['note'] ?? null,
+            'source_type' => ! empty($data['shift_id']) ? 'shift_expense' : 'manual',
+            'source_id'   => $data['shift_id'] ?? null,
             'occurred_at' => $data['occurred_at'] ?? now(),
         ]);
 

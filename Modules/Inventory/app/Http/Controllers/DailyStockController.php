@@ -154,12 +154,22 @@ class DailyStockController extends Controller
      */
     public function adjust(Request $request)
     {
+        // Kitchen/inventory staff adjust freely (inventory.update); a cashier may
+        // also adjust during shift-closing stock reconciliation (pos.close).
+        abort_unless(
+            $request->user()?->hasAnyPermission(['inventory.update', 'pos.close']),
+            403,
+            'Anda tidak memiliki izin untuk menyesuaikan stok.'
+        );
+
         $request->validate([
             'business_id'     => 'required|uuid',
             'date'            => 'required|date_format:Y-m-d',
             'product_id'      => 'required|uuid',
             'adjustment_qty'  => 'required|integer',
-            'adjustment_note' => 'nullable|string|max:255',
+            'adjustment_note' => 'required_unless:adjustment_qty,0|nullable|string|max:255',
+        ], [
+            'adjustment_note.required_unless' => 'Alasan penyesuaian wajib diisi jika jumlah stok diubah.',
         ]);
 
         $stock = $this->service->adjustStock(

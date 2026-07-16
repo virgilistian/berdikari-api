@@ -17,7 +17,7 @@ class FinanceLedgerTest extends TestCase
     {
         parent::setUp();
         $this->seedPermissions();
-        $this->token = $this->tokenFor($this->makeUser([], 'finance'));
+        $this->token = $this->tokenFor($this->makeUser(['finance.view', 'finance.create', 'finance.update', 'finance.delete'], 'finance'));
     }
 
     public function test_can_record_manual_income_and_expense(): void

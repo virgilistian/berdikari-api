@@ -22,7 +22,7 @@ class RolePermissionSeeder extends Seeder
     public const ROLE_PERMISSIONS = [
         'super-admin' => [
             // super-admin bypasses all checks via spatie gate — list here for documentation only
-            'pos.view', 'pos.open', 'pos.close',
+            'pos.view', 'pos.open', 'pos.close', 'pos.expense',
             'finance.view', 'finance.create', 'finance.update', 'finance.delete', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete',
@@ -36,7 +36,7 @@ class RolePermissionSeeder extends Seeder
         ],
 
         'business-owner' => [
-            'pos.view', 'pos.open', 'pos.close',
+            'pos.view', 'pos.open', 'pos.close', 'pos.expense',
             'finance.view', 'finance.create', 'finance.update', 'finance.delete', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete',
@@ -50,7 +50,7 @@ class RolePermissionSeeder extends Seeder
         ],
 
         'manager' => [
-            'pos.view', 'pos.open', 'pos.close',
+            'pos.view', 'pos.open', 'pos.close', 'pos.expense',
             'finance.view', 'finance.create', 'finance.update', 'finance.export',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view', 'catalog.create', 'catalog.update',
@@ -64,7 +64,7 @@ class RolePermissionSeeder extends Seeder
         ],
 
         'supervisor' => [
-            'pos.view', 'pos.open', 'pos.close',
+            'pos.view', 'pos.open', 'pos.close', 'pos.expense',
             'finance.view',
             'inventory.view', 'inventory.create', 'inventory.update', 'inventory.approve',
             'catalog.view',
@@ -77,7 +77,7 @@ class RolePermissionSeeder extends Seeder
         ],
 
         'cashier' => [
-            'pos.view', 'pos.open', 'pos.close',
+            'pos.view', 'pos.open', 'pos.close', 'pos.expense',
             'catalog.view',
             'inventory.view',
             'attendance.create',

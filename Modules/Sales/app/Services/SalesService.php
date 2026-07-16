@@ -59,8 +59,9 @@ class SalesService
         return DB::transaction(function () use ($businessId, $userId, $data, $action) {
             $total = collect($data['items'])->sum(fn ($i) => $i['quantity'] * $i['unit_price']);
 
-            // Link to active shift if available
+            // A cashier must have an open shift before any transaction.
             $activeShift = $this->resolveActiveShift($businessId, $userId);
+            abort_if($activeShift === null, 422, 'Anda harus membuka shift terlebih dahulu sebelum melakukan transaksi.');
 
             $order = SaleOrder::create([
                 'business_id'      => $businessId,

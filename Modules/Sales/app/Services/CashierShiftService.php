@@ -4,12 +4,16 @@ namespace Modules\Sales\Services;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Modules\Finance\Models\FinanceEntry;
+use Modules\Inventory\Services\DailyStockService;
 use Modules\Sales\Models\CashierShift;
 use Modules\Sales\Models\SaleOrder;
 use Modules\Sales\Models\SalePayment;
 
 class CashierShiftService
 {
+    public function __construct(private DailyStockService $dailyStockService) {}
+
     /**
      * Get the currently active shift for a user in a business.
      */
@@ -86,6 +90,26 @@ class CashierShiftService
             $closingCash  = (float) ($data['closing_cash'] ?? 0);
             $difference   = $closingCash - $expectedCash;
 
+            // Finalize today's daily stock opname (kitchen input) and snapshot it
+            // on the shift for the shift summary — no separate "close stock" action.
+            $dailyStocks = $this->dailyStockService->closeDay($shift->business_id, now()->toDateString());
+
+            $stockSummary = $dailyStocks->map(fn ($s) => [
+                'product_id'      => $s->product_id,
+                'product_name'    => $s->product_name,
+                'opening_qty'     => $s->opening_qty,
+                'sold_qty'        => $s->sold_qty,
+                'adjustment_qty'  => $s->adjustment_qty,
+                'adjustment_note' => $s->adjustment_note,
+                'closing_qty'     => $s->closing_qty,
+            ])->values()->all();
+
+            $totalExpenses = (float) FinanceEntry::where('business_id', $shift->business_id)
+                ->where('type', 'expense')
+                ->where('source_type', 'shift_expense')
+                ->where('source_id', $shift->id)
+                ->sum('amount');
+
             $shift->update([
                 'status'              => 'closed',
                 'closing_cash'        => $closingCash,
@@ -93,7 +117,10 @@ class CashierShiftService
                 'cash_difference'     => $difference,
                 'transaction_count'   => $transactionCount,
                 'total_sales'         => $totalSales,
+                'total_expenses'      => $totalExpenses,
+                'net_income'          => $totalSales - $totalExpenses,
                 'payment_breakdown'   => $breakdown,
+                'stock_summary'       => $stockSummary,
                 'closing_note'        => $data['closing_note'] ?? null,
                 'closed_at'           => now(),
             ]);
