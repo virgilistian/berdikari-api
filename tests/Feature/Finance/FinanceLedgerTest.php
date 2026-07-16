@@ -112,4 +112,43 @@ class FinanceLedgerTest extends TestCase
         $this->withToken($this->token)->deleteJson("/api/v1/finance/{$entry->id}")
             ->assertStatus(422);
     }
+
+    public function test_deleting_a_transaction_requires_finance_delete_permission(): void
+    {
+        $entry = \Modules\Finance\Models\FinanceEntry::create([
+            'business_id' => $this->businessId,
+            'type' => 'expense', 'amount' => 10000, 'category' => 'Belanja Bahan',
+            'source_type' => 'manual', 'occurred_at' => now(),
+        ]);
+
+        $noPermToken = $this->tokenFor($this->makeUser(['finance.view'], 'finance'));
+
+        $this->withToken($noPermToken)->deleteJson("/api/v1/finance/{$entry->id}")
+            ->assertStatus(403);
+    }
+
+    public function test_deleting_a_transaction_soft_deletes_and_excludes_it_from_list_and_summary(): void
+    {
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'income', 'amount' => 100000, 'category' => 'Penjualan',
+        ])->assertCreated();
+
+        $expense = $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'expense', 'amount' => 40000, 'category' => 'Belanja Bahan',
+        ])->assertCreated()->json('data.id');
+
+        $this->withToken($this->token)->deleteJson("/api/v1/finance/{$expense}")
+            ->assertOk()->assertJsonPath('message', 'Transaksi berhasil dihapus.');
+
+        $this->withToken($this->token)->getJson('/api/v1/finance')
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        $this->withToken($this->token)->getJson('/api/v1/finance/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_income', 100000)
+            ->assertJsonPath('data.total_expense', 0)
+            ->assertJsonPath('data.net', 100000);
+
+        $this->assertSoftDeleted('finance_entries', ['id' => $expense]);
+    }
 }
