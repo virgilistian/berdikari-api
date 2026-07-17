@@ -74,11 +74,27 @@ class FinanceLedgerTest extends TestCase
 
     public function test_rejects_future_transaction_date(): void
     {
-        $futureDate = now()->addDay()->toDateString();
+        $futureDate = now('Asia/Jakarta')->addDay()->toDateString();
 
         $this->withToken($this->token)->postJson('/api/v1/finance', [
             'type' => 'expense', 'amount' => 20000, 'category' => 'Belanja Bahan', 'occurred_at' => $futureDate,
         ])->assertUnprocessable()->assertJsonValidationErrors(['occurred_at']);
+    }
+
+    public function test_accepts_todays_date_even_when_utc_and_jakarta_calendar_days_differ(): void
+    {
+        // 20:00 UTC is already past midnight WIB (UTC+7) — the exact window
+        // where the server's UTC "today" used to lag a day behind the date
+        // picker's browser-local "today", falsely rejecting today's entry.
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-07-16 20:00:00', 'UTC'));
+
+        $todayInJakarta = now('Asia/Jakarta')->toDateString();
+
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'expense', 'amount' => 15000, 'category' => 'Belanja Bahan', 'occurred_at' => $todayInJakarta,
+        ])->assertCreated();
+
+        \Illuminate\Support\Carbon::setTestNow();
     }
 
     public function test_filters_and_summary_use_transaction_date_not_creation_date(): void

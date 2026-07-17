@@ -5,6 +5,7 @@ namespace Modules\Tax\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Tax\Contracts\HolidayProviderInterface;
+use Modules\Tax\DTO\CalendarContext;
 use Modules\Tax\DTO\GeneratedReportDraft;
 use Modules\Tax\DTO\TaxGenerationConfig;
 use Modules\Tax\Models\TaxBusinessProfile;
@@ -45,6 +46,8 @@ class TaxGenerationService
         $cap = $config->monthlyCap($calendar->hasHoliday());
         $draft = $this->normalizationService->normalize($generator, $draft, $cap, $config);
 
+        $this->assertWeekendHolidaySalesValid($calendar, $draft, isSave: false);
+
         return DB::transaction(function () use ($profile, $month, $year, $generatedBy, $config, $calendar, $draft, $cap) {
             $report = TaxReport::query()->updateOrCreate(
                 [
@@ -75,7 +78,9 @@ class TaxGenerationService
 
     /**
      * Apply manual edits, recompute derived totals, and persist — never
-     * re-randomizes. Rejects (422) if the recomputed total exceeds the cap.
+     * re-randomizes. Rejects (422) if a weekend/holiday day was edited down
+     * to Rp0 sales (see assertWeekendHolidaySalesValid), or if the
+     * recomputed total exceeds the cap.
      *
      * @param  array[]  $editedEntries  full or partial entries[] (the frontend
      *                                  always sends every day on save, not just
@@ -127,6 +132,10 @@ class TaxGenerationService
         }
 
         $draft = $generator->recompute($entries, $config);
+
+        $calendar = $this->calendarService->build($report->period_year, $report->period_month, $this->holidayProvider);
+        $this->assertWeekendHolidaySalesValid($calendar, $draft, isSave: true);
+
         $totalTax = $draft->totalTax();
 
         if ($totalTax > (float) $report->monthly_cap) {
@@ -161,5 +170,48 @@ class TaxGenerationService
 
             return $report->fresh('entries');
         });
+    }
+
+    /**
+     * Every Saturday, Sunday, or national holiday in the period must have
+     * sales > 0 — a report cannot be generated or saved otherwise. The Eid
+     * al-Fitr (Lebaran) period is excluded since businesses legitimately
+     * have no sales for that whole stretch. Blocks the action (422) and
+     * lists every offending date so the user knows what to fix. Runs both
+     * at generation time and again on save (recompute), since manual edits
+     * after generation can reintroduce a zero on one of these days.
+     */
+    private function assertWeekendHolidaySalesValid(CalendarContext $calendar, GeneratedReportDraft $draft, bool $isSave): void
+    {
+        $entriesByDay = collect($draft->entries)->keyBy('day_number');
+        $violations = [];
+
+        foreach ($calendar->days as $day) {
+            if ($day->isEidAlFitri || (! $day->isWeekend && ! $day->isHoliday)) {
+                continue;
+            }
+
+            $sales = (float) ($entriesByDay->get($day->dayNumber)['sales'] ?? 0);
+
+            if ($sales <= 0.0) {
+                $label = $day->isHoliday ? $day->holidayName : ucfirst($day->weekdayName);
+                $violations[] = $day->date->format('d-m-Y') . " ({$label})";
+            }
+        }
+
+        if (empty($violations)) {
+            return;
+        }
+
+        $action = $isSave ? 'disimpan' : 'dibuat';
+        $nextStep = $isSave
+            ? 'Perbaiki nilai penjualan pada tanggal-tanggal tersebut agar lebih dari Rp0, lalu simpan kembali.'
+            : 'Silakan buat ulang laporan untuk bulan ini.';
+
+        throw ValidationException::withMessages([
+            'period' => "Laporan pajak tidak bisa {$action} karena penjualan bernilai Rp0 ditemukan pada hari Sabtu, Minggu, atau libur nasional berikut: "
+                . implode(', ', $violations)
+                . ". Setiap akhir pekan dan hari libur nasional wajib memiliki nilai penjualan lebih dari Rp0 (periode libur Lebaran/Idul Fitri dikecualikan). {$nextStep}",
+        ]);
     }
 }

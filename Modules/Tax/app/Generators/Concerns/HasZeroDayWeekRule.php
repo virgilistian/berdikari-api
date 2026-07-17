@@ -10,6 +10,11 @@ use Random\Randomizer;
  * Every ISO week gets at least one forced zero-value day; the random process
  * is allowed to additionally zero out up to `zero_days_max` days in a week,
  * so the result doesn't look mechanically "exactly one zero day every week."
+ *
+ * Candidates exclude Saturdays, Sundays, and national holidays — a report
+ * must never show Rp0 sales on those days (see TaxGenerationService's
+ * weekend/holiday validation) — except during the Eid al-Fitr (Lebaran)
+ * period, where a zero day is expected and allowed.
  */
 trait HasZeroDayWeekRule
 {
@@ -24,7 +29,16 @@ trait HasZeroDayWeekRule
         $zeroDays = [];
 
         foreach ($calendar->weeks() as $weekDays) {
-            $dayNumbers = array_map(fn ($day) => $day->dayNumber, $weekDays);
+            $candidates = array_values(array_filter(
+                $weekDays,
+                fn ($day) => $day->isEidAlFitri || (! $day->isWeekend && ! $day->isHoliday),
+            ));
+
+            if (empty($candidates)) {
+                continue;
+            }
+
+            $dayNumbers = array_map(fn ($day) => $day->dayNumber, $candidates);
             $count = min(count($dayNumbers), $randomizer->getInt($min, $max));
             $shuffled = $randomizer->shuffleArray($dayNumbers);
             array_push($zeroDays, ...array_slice($shuffled, 0, $count));

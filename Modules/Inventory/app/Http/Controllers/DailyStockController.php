@@ -123,6 +123,35 @@ class DailyStockController extends Controller
     }
 
     /**
+     * Riwayat stok harian
+     *
+     * Mengembalikan ringkasan stok harian per tanggal (terbaru lebih dulu).
+     *
+     * @queryParam business_id string required UUID bisnis. Example: 550e8400-e29b-41d4-a716-446655440000
+     *
+     * @response 200 {
+     *   "data": [
+     *     {
+     *       "date": "2026-07-17",
+     *       "total_menu_items": 12,
+     *       "total_opening_qty": 120,
+     *       "total_closing_qty": 34,
+     *       "status": "closed"
+     *     }
+     *   ]
+     * }
+     * @response 422 {"message": "The business id field is required."}
+     */
+    public function history(Request $request)
+    {
+        $request->validate(['business_id' => 'required|uuid']);
+
+        $history = $this->service->getHistory($request->business_id);
+
+        return response()->json(['data' => $history]);
+    }
+
+    /**
      * Daftar produk untuk stok harian
      *
      * Mengembalikan semua produk aktif dengan harga dan stok tersedia,
@@ -181,5 +210,31 @@ class DailyStockController extends Controller
         );
 
         return response()->json(['message' => 'Penyesuaian stok berhasil.', 'data' => $stock]);
+    }
+
+    /**
+     * Hapus draf stok harian
+     *
+     * Menghapus seluruh catatan stok untuk tanggal tertentu, hanya jika
+     * masih berstatus draf (belum berlaku).
+     *
+     * @queryParam business_id string required UUID bisnis. Example: uuid
+     *
+     * @response 200 {"message": "Draf stok berhasil dihapus."}
+     * @response 422 {"message": "Hanya stok berstatus draf yang bisa dihapus."}
+     */
+    public function destroy(Request $request, string $date)
+    {
+        abort_unless(
+            $request->user()?->hasPermissionTo('inventory.create'),
+            403,
+            'Anda tidak memiliki izin untuk menghapus draf stok.'
+        );
+
+        $request->validate(['business_id' => 'required|uuid']);
+
+        $this->service->deleteDraftDay($request->business_id, $date);
+
+        return response()->json(['message' => 'Draf stok berhasil dihapus.']);
     }
 }

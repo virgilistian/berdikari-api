@@ -74,8 +74,36 @@ class InventoryService
         return InventoryMovement::where('business_id', $businessId)
             ->where('product_id', $productId)
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->limit(100)
             ->get();
+    }
+
+    /**
+     * Movement history across all products for the business (newest first).
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function allMovements(string $businessId, int $limit = 100)
+    {
+        return InventoryMovement::with('product')
+            ->where('business_id', $businessId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (InventoryMovement $m) => [
+                'id'             => $m->id,
+                'product_id'     => $m->product_id,
+                'product_name'   => $m->product->name ?? '—',
+                'type'           => $m->type,
+                'quantity'       => (int) $m->quantity,
+                'balance_after'  => $m->balance_after !== null ? (int) $m->balance_after : null,
+                'reason'         => $m->reason,
+                'reference_type' => $m->reference_type,
+                'created_at'     => $m->created_at,
+            ])
+            ->values();
     }
 
     /**

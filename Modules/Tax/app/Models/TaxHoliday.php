@@ -10,9 +10,14 @@ class TaxHoliday extends Model
 {
     use HasUuids;
 
+    public const TYPE_NATIONAL = 'national';
+
+    public const TYPE_EID_AL_FITR = 'eid_al_fitr';
+
     protected $fillable = [
         'date',
         'name',
+        'type',
     ];
 
     protected $casts = [
@@ -27,7 +32,13 @@ class TaxHoliday extends Model
      */
     protected static function booted(): void
     {
-        static::saved(fn (self $holiday) => Cache::forget("tax:holidays:{$holiday->date->year}"));
-        static::deleted(fn (self $holiday) => Cache::forget("tax:holidays:{$holiday->date->year}"));
+        static::saved(function (self $holiday) {
+            Cache::forget("tax:holidays:{$holiday->date->year}");
+            Cache::forget("tax:holidays:eid:{$holiday->date->year}");
+        });
+        static::deleted(function (self $holiday) {
+            Cache::forget("tax:holidays:{$holiday->date->year}");
+            Cache::forget("tax:holidays:eid:{$holiday->date->year}");
+        });
     }
 }

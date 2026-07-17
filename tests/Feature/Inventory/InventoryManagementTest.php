@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Inventory;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\IAM\Concerns\InteractsWithRbac;
 use Tests\TestCase;
 
@@ -95,5 +97,64 @@ class InventoryManagementTest extends TestCase
         $this->assertDatabaseHas('inventory_movements', [
             'product_id' => $product, 'type' => 'adjustment', 'quantity' => -3,
         ]);
+    }
+
+    public function test_stock_history_lists_movements_across_products_newest_first(): void
+    {
+        $gula = $this->createProduct('Gula', 10000, 8000);
+        $kopi = $this->createProduct('Kopi', 5000, 3000);
+
+        $this->withToken($this->token)->postJson('/api/v1/inventory/receive', [
+            'product_id' => $gula, 'quantity' => 5,
+        ])->assertCreated();
+
+        $this->withToken($this->token)->postJson('/api/v1/inventory/receive', [
+            'product_id' => $kopi, 'quantity' => 10,
+        ])->assertCreated();
+
+        $this->withToken($this->token)->postJson('/api/v1/inventory/adjust', [
+            'product_id' => $gula, 'quantity' => 3, 'reason' => 'Tumpah',
+        ])->assertOk();
+
+        $response = $this->withToken($this->token)->getJson('/api/v1/inventory/movements')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+
+        $data = $response->json('data');
+
+        // Newest first: the Gula adjustment was recorded last.
+        $this->assertSame($gula, $data[0]['product_id']);
+        $this->assertSame('adjustment', $data[0]['type']);
+        $this->assertSame(-2, $data[0]['quantity']);
+        $this->assertSame('Gula', $data[0]['product_name']);
+        $this->assertSame(3, $data[0]['balance_after']);
+
+        $this->assertSame($kopi, $data[1]['product_id']);
+        $this->assertSame($gula, $data[2]['product_id']);
+    }
+
+    public function test_stock_history_is_scoped_to_the_requesting_business(): void
+    {
+        $product = $this->createProduct('Teh', 2000, 1000);
+        $this->withToken($this->token)->postJson('/api/v1/inventory/receive', [
+            'product_id' => $product, 'quantity' => 4,
+        ])->assertCreated();
+
+        $otherBusinessId = '019f2e4c-0000-7000-8000-000000000099';
+        DB::table('businesses')->insertOrIgnore([
+            'id' => $otherBusinessId, 'name' => 'Other Business', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $otherUser = User::create([
+            'business_id' => $otherBusinessId,
+            'name'        => 'Other Owner',
+            'email'       => 'other'.uniqid().'@test.com',
+            'password'    => bcrypt('password'),
+            'role'        => 'owner',
+        ]);
+
+        $this->actingWithToken($this->tokenFor($otherUser))
+            ->getJson('/api/v1/inventory/movements')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 }

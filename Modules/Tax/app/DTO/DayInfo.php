@@ -13,6 +13,7 @@ class DayInfo
         public readonly bool $isWeekend,
         public readonly bool $isHoliday,
         public readonly ?string $holidayName,
+        public readonly bool $isEidAlFitri = false,
     ) {
     }
 

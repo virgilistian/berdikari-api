@@ -35,4 +35,24 @@ class DatabaseHolidayProvider implements HolidayProviderInterface
     {
         return $this->forYear($date->year)[$date->format('Y-m-d')] ?? null;
     }
+
+    public function isEidAlFitri(Carbon $date): bool
+    {
+        return in_array($date->format('Y-m-d'), $this->eidAlFitriDatesForYear($date->year), true);
+    }
+
+    /**
+     * @return string[] 'Y-m-d' dates tagged type=eid_al_fitr
+     */
+    private function eidAlFitriDatesForYear(int $year): array
+    {
+        return Cache::remember("tax:holidays:eid:{$year}", now()->addHours(6), function () use ($year) {
+            return TaxHoliday::query()
+                ->whereYear('date', $year)
+                ->where('type', TaxHoliday::TYPE_EID_AL_FITR)
+                ->get()
+                ->map(fn (TaxHoliday $holiday) => $holiday->date->format('Y-m-d'))
+                ->all();
+        });
+    }
 }

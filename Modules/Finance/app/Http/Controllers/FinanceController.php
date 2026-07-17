@@ -19,6 +19,17 @@ class FinanceController extends Controller
     }
 
     /**
+     * "Today" as the frontend date picker computes it (browser-local, WIB for
+     * Indonesian users) — not the server's UTC `today()`, which lags behind
+     * during the first hours of each Indonesian calendar day and rejects
+     * valid same-day dates as being in the future.
+     */
+    private function todayForValidation(): string
+    {
+        return now('Asia/Jakarta')->toDateString();
+    }
+
+    /**
      * Daftar arus kas
      *
      * Filter opsional: `type` (income/expense), `category`, `from`, `to` (Y-m-d), `business_id`.
@@ -74,7 +85,7 @@ class FinanceController extends Controller
             'amount'      => 'required|numeric|min:0',
             'category'    => 'required|string|max:100',
             'note'        => 'nullable|string|max:1000',
-            'occurred_at' => 'nullable|date|before_or_equal:today',
+            'occurred_at' => ['nullable', 'date', 'before_or_equal:'.$this->todayForValidation()],
             'business_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::in([$this->businessId($request)])],
             'shift_id'    => 'nullable|uuid',
         ], [
@@ -122,6 +133,45 @@ class FinanceController extends Controller
             ->findOrFail($id);
 
         return response()->json(['data' => $entry]);
+    }
+
+    /**
+     * Perbarui transaksi (hanya entri manual)
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $entry = FinanceEntry::where('business_id', $this->businessId($request))->findOrFail($id);
+
+        if ($entry->source_type !== 'manual') {
+            return response()->json([
+                'message' => 'Transaksi otomatis dari penjualan tidak dapat diubah.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'type'        => 'required|in:income,expense',
+            'amount'      => 'required|numeric|min:0',
+            'category'    => 'required|string|max:100',
+            'note'        => 'nullable|string|max:1000',
+            'occurred_at' => ['nullable', 'date', 'before_or_equal:'.$this->todayForValidation()],
+        ], [
+            'occurred_at.before_or_equal' => 'Tanggal transaksi tidak boleh di masa depan.',
+        ]);
+
+        $entry->update([
+            'type'        => $data['type'],
+            'amount'      => $data['amount'],
+            'category'    => $data['category'],
+            'note'        => $data['note'] ?? null,
+            'occurred_at' => $data['occurred_at'] ?? $entry->occurred_at,
+        ]);
+
+        $entry->load('business:id,name');
+
+        return response()->json([
+            'message' => 'Transaksi berhasil diperbarui.',
+            'data'    => $entry,
+        ]);
     }
 
     /**

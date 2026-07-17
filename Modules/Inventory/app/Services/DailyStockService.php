@@ -10,10 +10,15 @@ use Modules\Sales\Models\SaleOrder;
 
 class DailyStockService
 {
+    public function __construct(private InventoryService $inventoryService) {}
+
     /**
      * Open the day by recording opening quantities for each product.
      * Uses updateOrCreate so re-opening resets sold_qty and closing_qty.
      * Automatically populates price and image_url from the Catalog.
+     *
+     * Records for a date after today are stamped 'draft' — prep for a day that
+     * hasn't started yet, not yet counted as the live open day.
      *
      * @param  array<int, array{product_id: string, product_name: string, opening_qty: int}>  $items
      * @return \Illuminate\Database\Eloquent\Collection
@@ -27,7 +32,9 @@ class DailyStockService
                 ->get(['id', 'price', 'image_url'])
                 ->keyBy('id');
 
-            return collect($items)->map(function ($item) use ($businessId, $date, $products) {
+            $status = $date > now()->toDateString() ? 'draft' : 'open';
+
+            return collect($items)->map(function ($item) use ($businessId, $date, $products, $status) {
                 $product = $products->get($item['product_id']);
 
                 return DailyStock::updateOrCreate(
@@ -44,7 +51,7 @@ class DailyStockService
                         'adjustment_qty' => 0,
                         'sold_qty'      => 0,
                         'closing_qty'   => null,
-                        'status'        => 'open',
+                        'status'        => $status,
                     ]
                 );
             });
@@ -83,12 +90,18 @@ class DailyStockService
                 ->get();
 
             foreach ($stocks as $stock) {
+                $closingQty = max(0, $stock->opening_qty + $stock->adjustment_qty - $stock->sold_qty);
+
                 $stock->update([
                     // Mirrors remaining_qty in getDay(): adjustments (e.g. cashier's
                     // physical-count correction) must be reflected in the final tally.
-                    'closing_qty' => max(0, $stock->opening_qty + $stock->adjustment_qty - $stock->sold_qty),
+                    'closing_qty' => $closingQty,
                     'status'      => 'closed',
                 ]);
+
+                // Daily stock is the authoritative count; sync the realtime/valuation
+                // ledger to it here so it never drifts from what the day actually closed at.
+                $this->inventoryService->adjust($businessId, $stock->product_id, $closingQty, 'Sinkronisasi penutupan stok harian');
             }
 
             return $stocks->fresh();
@@ -125,6 +138,34 @@ class DailyStockService
         }
 
         return $stocks;
+    }
+
+    /**
+     * Aggregate daily stock records per date (newest first) for the history list.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function getHistory(string $businessId)
+    {
+        return DailyStock::where('business_id', $businessId)
+            ->selectRaw(
+                'date, '
+                . 'COUNT(DISTINCT product_id) as total_menu_items, '
+                . 'SUM(opening_qty) as total_opening_qty, '
+                . 'SUM(closing_qty) as total_closing_qty, '
+                . "SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_count, "
+                . "SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft_count"
+            )
+            ->groupBy('date')
+            ->orderByDesc('date')
+            ->get()
+            ->map(fn ($row) => [
+                'date'              => $row->date instanceof \Carbon\CarbonInterface ? $row->date->toDateString() : $row->date,
+                'total_menu_items'  => (int) $row->total_menu_items,
+                'total_opening_qty' => (int) $row->total_opening_qty,
+                'total_closing_qty' => (int) ($row->total_closing_qty ?? 0),
+                'status'            => $row->open_count > 0 ? 'open' : ($row->draft_count > 0 ? 'draft' : 'closed'),
+            ]);
     }
 
     /**
@@ -174,5 +215,29 @@ class DailyStockService
         $stock->update(['adjustment_note' => $note]);
 
         return $stock->fresh();
+    }
+
+    /**
+     * Delete a future-dated day that is still in draft — undoes a prep that
+     * hasn't gone live yet. Refuses if any record for the date is no longer
+     * a draft (e.g. the day already started or was closed).
+     */
+    public function deleteDraftDay(string $businessId, string $date): void
+    {
+        DB::transaction(function () use ($businessId, $date) {
+            $stocks = DailyStock::where('business_id', $businessId)
+                ->where('date', $date)
+                ->get();
+
+            abort_if(
+                $stocks->isEmpty() || $stocks->contains(fn ($s) => $s->status !== 'draft'),
+                422,
+                'Hanya stok berstatus draf yang bisa dihapus.'
+            );
+
+            DailyStock::where('business_id', $businessId)
+                ->where('date', $date)
+                ->delete();
+        });
     }
 }

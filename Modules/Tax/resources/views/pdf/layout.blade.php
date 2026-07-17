@@ -74,24 +74,26 @@
         }
 
         .sign-space {
-            height: 60px;
+            height: 80px;
             position: relative;
             margin-top: 4px;
         }
 
-        .stamp-img {
-            position: absolute;
-            left: 55px;
-            top: 0;
-            max-height: 60px;
-            opacity: 0.9;
-        }
-
         .signature-img {
             position: absolute;
-            left: 0;
-            top: 0;
-            max-height: 52px;
+            left: 4px;
+            top: 6px;
+            max-height: 46px;
+            max-width: 130px;
+        }
+
+        .stamp-img {
+            position: absolute;
+            left: 46px;
+            top: 18px;
+            max-height: 68px;
+            max-width: 68px;
+            opacity: 0.88;
         }
     </style>
 </head>
@@ -140,15 +142,15 @@
                 Petugas Bapenda Karawang
             </td>
             <td width="50%">
-                Karawang,……………………………………..
+                Karawang, {{ $monthName }} {{ $report->period_year }}
                 &nbsp;<br>
                 Pimpinan /Manager
                 <div class="sign-space">
-                    @if($stampDataUri)
-                        <img src="{{ $stampDataUri }}" class="stamp-img">
-                    @endif
                     @if($signatureDataUri)
                         <img src="{{ $signatureDataUri }}" class="signature-img">
+                    @endif
+                    @if($stampDataUri)
+                        <img src="{{ $stampDataUri }}" class="stamp-img">
                     @endif
                 </div>
                 ({{ $profile->owner_name ?: '.................................' }})

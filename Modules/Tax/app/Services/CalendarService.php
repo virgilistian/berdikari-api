@@ -36,6 +36,7 @@ class CalendarService
             $isWeekend = in_array($date->dayOfWeekIso, [6, 7], true);
             $isHoliday = $holidays->isHoliday($date);
             $holidayName = $isHoliday ? $holidays->nameFor($date) : null;
+            $isEidAlFitri = $holidays->isEidAlFitri($date);
 
             if ($isHoliday) {
                 $holidayCount++;
@@ -48,6 +49,7 @@ class CalendarService
                 isWeekend: $isWeekend,
                 isHoliday: $isHoliday,
                 holidayName: $holidayName,
+                isEidAlFitri: $isEidAlFitri,
             );
         }
 

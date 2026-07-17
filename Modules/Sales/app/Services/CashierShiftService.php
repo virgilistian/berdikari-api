@@ -92,7 +92,20 @@ class CashierShiftService
 
             // Finalize today's daily stock opname (kitchen input) and snapshot it
             // on the shift for the shift summary — no separate "close stock" action.
-            $dailyStocks = $this->dailyStockService->closeDay($shift->business_id, now()->toDateString());
+            // Only freeze it once this is the LAST open shift for the day: daily_stocks
+            // is scoped per business+date, not per shift, so closing it while another
+            // cashier's shift is still open would silently stop that shift's sales and
+            // adjustments from being recorded (recordSale/adjustStock only touch
+            // status='open' rows) — the exact cause of Stock-page vs shift-close drift.
+            $today = now()->toDateString();
+            $isLastOpenShift = ! CashierShift::where('business_id', $shift->business_id)
+                ->where('status', 'open')
+                ->where('id', '!=', $shift->id)
+                ->exists();
+
+            $dailyStocks = $isLastOpenShift
+                ? $this->dailyStockService->closeDay($shift->business_id, $today)
+                : $this->dailyStockService->getDay($shift->business_id, $today);
 
             $stockSummary = $dailyStocks->map(fn ($s) => [
                 'product_id'      => $s->product_id,
@@ -101,7 +114,7 @@ class CashierShiftService
                 'sold_qty'        => $s->sold_qty,
                 'adjustment_qty'  => $s->adjustment_qty,
                 'adjustment_note' => $s->adjustment_note,
-                'closing_qty'     => $s->closing_qty,
+                'closing_qty'     => $s->closing_qty ?? max(0, $s->opening_qty + $s->adjustment_qty - $s->sold_qty),
             ])->values()->all();
 
             $totalExpenses = (float) FinanceEntry::where('business_id', $shift->business_id)

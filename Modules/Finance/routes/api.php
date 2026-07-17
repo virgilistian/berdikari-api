@@ -19,6 +19,8 @@ Route::middleware(['auth:sanctum', 'permission.team'])->prefix('v1/finance')->gr
         ->middleware('can:finance.delete')->name('finance.categories.destroy');
 
     Route::get('{id}', [FinanceController::class, 'show'])->name('finance.show');
+    Route::put('{id}', [FinanceController::class, 'update'])
+        ->middleware('can:finance.update')->name('finance.update');
     Route::delete('{id}', [FinanceController::class, 'destroy'])
         ->middleware('can:finance.delete')->name('finance.destroy');
 });

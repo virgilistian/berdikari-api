@@ -87,6 +87,18 @@ class InventoryController extends Controller
     }
 
     /**
+     * Riwayat pergerakan stok seluruh produk
+     *
+     * Menampilkan riwayat perubahan stok (masuk/keluar/penyesuaian) lintas produk, terbaru lebih dulu.
+     */
+    public function allMovements(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->service->allMovements($this->businessId($request)),
+        ]);
+    }
+
+    /**
      * Stok masuk (pembelian / penerimaan barang)
      */
     public function receive(Request $request): JsonResponse

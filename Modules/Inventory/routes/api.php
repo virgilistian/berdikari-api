@@ -15,19 +15,22 @@ use Modules\Inventory\Http\Controllers\DailyStockController;
  *
 */
 
-Route::prefix('v1/inventory')->middleware('auth:sanctum')->group(function () {
+Route::prefix('v1/inventory')->middleware(['auth:sanctum', 'permission.team'])->group(function () {
     Route::get('/', [InventoryController::class, 'index']);
     Route::get('summary', [InventoryController::class, 'summary']);
     Route::get('low-stock', [InventoryController::class, 'lowStock']);
+    Route::get('movements', [InventoryController::class, 'allMovements']);
     Route::post('receive', [InventoryController::class, 'receive']);
     Route::post('adjust', [InventoryController::class, 'adjust']);
 
     Route::prefix('daily-stock')->group(function () {
         Route::get('products', [DailyStockController::class, 'products']);
+        Route::get('history', [DailyStockController::class, 'history']);
         Route::get('{date}', [DailyStockController::class, 'show']);
         Route::post('open', [DailyStockController::class, 'open']);
         Route::post('close', [DailyStockController::class, 'close']);
         Route::post('adjust', [DailyStockController::class, 'adjust']);
+        Route::delete('{date}', [DailyStockController::class, 'destroy']);
     });
 
     Route::get('{id}', [InventoryController::class, 'show']);
