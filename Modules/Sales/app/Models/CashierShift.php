@@ -23,6 +23,7 @@ class CashierShift extends Model
         'expected_cash',
         'cash_difference',
         'transaction_count',
+        'total_items_sold',
         'total_sales',
         'total_expenses',
         'net_income',

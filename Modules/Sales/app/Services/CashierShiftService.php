@@ -63,17 +63,18 @@ class CashierShiftService
      * final close calculation so both always agree with the same source of
      * truth (completed SaleOrder rows).
      *
-     * @return array{0: float, 1: int, 2: array<string, float>}
+     * @return array{0: float, 1: int, 2: array<string, float>, 3: int}
      */
     private function computeOrderStats(CashierShift $shift): array
     {
         $orders = SaleOrder::where('cashier_shift_id', $shift->id)
             ->where('status', 'completed')
-            ->with('payments')
+            ->with('payments', 'items')
             ->get();
 
         $totalSales = (float) $orders->sum('total_amount');
         $transactionCount = $orders->count();
+        $totalItemsSold = (int) $orders->flatMap->items->sum('quantity');
 
         $breakdown = [];
         foreach ($orders as $order) {
@@ -83,7 +84,7 @@ class CashierShiftService
             }
         }
 
-        return [$totalSales, $transactionCount, $breakdown];
+        return [$totalSales, $transactionCount, $breakdown, $totalItemsSold];
     }
 
     private function computeTotalExpenses(CashierShift $shift): float
@@ -107,11 +108,12 @@ class CashierShiftService
             return $shift;
         }
 
-        [$totalSales, $transactionCount, $breakdown] = $this->computeOrderStats($shift);
+        [$totalSales, $transactionCount, $breakdown, $totalItemsSold] = $this->computeOrderStats($shift);
         $totalExpenses = $this->computeTotalExpenses($shift);
 
         $shift->total_sales       = $totalSales;
         $shift->transaction_count = $transactionCount;
+        $shift->total_items_sold  = $totalItemsSold;
         $shift->payment_breakdown = $breakdown;
         $shift->total_expenses    = $totalExpenses;
         $shift->net_income        = $totalSales - $totalExpenses;
@@ -129,7 +131,7 @@ class CashierShiftService
         abort_if($shift->status !== 'open', 422, 'Shift ini sudah ditutup.');
 
         return DB::transaction(function () use ($shift, $data) {
-            [$totalSales, $transactionCount, $breakdown] = $this->computeOrderStats($shift);
+            [$totalSales, $transactionCount, $breakdown, $totalItemsSold] = $this->computeOrderStats($shift);
             $totalExpenses = $this->computeTotalExpenses($shift);
 
             $cashSales    = $breakdown['cash'] ?? 0;
@@ -170,6 +172,7 @@ class CashierShiftService
                 'expected_cash'       => $expectedCash,
                 'cash_difference'     => $difference,
                 'transaction_count'   => $transactionCount,
+                'total_items_sold'    => $totalItemsSold,
                 'total_sales'         => $totalSales,
                 'total_expenses'      => $totalExpenses,
                 'net_income'          => $totalSales - $totalExpenses,

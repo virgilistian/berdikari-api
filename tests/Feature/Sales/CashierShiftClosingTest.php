@@ -90,6 +90,7 @@ class CashierShiftClosingTest extends TestCase
         ])->assertOk()->json('data');
 
         $this->assertSame(15000.0, (float) $closed['total_sales']);
+        $this->assertSame(5, $closed['total_items_sold']);
         $this->assertSame(15000.0, (float) $closed['total_expenses']);
         $this->assertSame(0.0, (float) $closed['net_income']); // 15000 sales - 15000 expenses
 
@@ -144,6 +145,7 @@ class CashierShiftClosingTest extends TestCase
             ->assertOk()->json('data');
 
         $this->assertSame(2, $active['transaction_count']);
+        $this->assertSame(5, $active['total_items_sold']); // 2 + 3 units
         $this->assertSame(25000.0, (float) $active['total_sales']);
         $this->assertSame(4000.0, (float) $active['total_expenses']);
         $this->assertSame(21000.0, (float) $active['net_income']);
@@ -155,6 +157,7 @@ class CashierShiftClosingTest extends TestCase
         ])->assertOk()->json('data');
 
         $this->assertSame(2, $closed['transaction_count']);
+        $this->assertSame(5, $closed['total_items_sold']);
         $this->assertSame(25000.0, (float) $closed['total_sales']);
         $this->assertSame(4000.0, (float) $closed['total_expenses']);
         $this->assertSame(21000.0, (float) $closed['net_income']);
@@ -214,7 +217,10 @@ class CashierShiftClosingTest extends TestCase
         $active = $this->withToken($this->token)->getJson('/api/v1/sales/shifts/active')
             ->assertOk()->json('data');
         $this->assertSame(60000.0, (float) $active['total_sales']);
+        $this->assertSame(6, $active['total_items_sold']); // 2 + 3 + 1 units
         $this->assertSame(20000.0, (float) $active['payment_breakdown']['cash']);
+        $this->assertSame(30000.0, (float) $active['payment_breakdown']['qris']);
+        $this->assertSame(10000.0, (float) $active['payment_breakdown']['transfer']);
 
         // Expected cash: opening 20.000 + cash sales 20.000 = 40.000 — QRIS (30.000)
         // and transfer (10.000) are excluded.
