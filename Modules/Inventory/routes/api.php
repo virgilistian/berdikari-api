@@ -30,6 +30,7 @@ Route::prefix('v1/inventory')->middleware(['auth:sanctum', 'permission.team'])->
         Route::post('open', [DailyStockController::class, 'open']);
         Route::post('close', [DailyStockController::class, 'close']);
         Route::post('adjust', [DailyStockController::class, 'adjust']);
+        Route::delete('dev/{date}', [DailyStockController::class, 'destroyDev']);
         Route::delete('{date}', [DailyStockController::class, 'destroy']);
     });
 

@@ -38,6 +38,10 @@ class CashierShiftController extends Controller
 
         $shift = $this->service->activeShift($this->businessId(), $this->userId());
 
+        if ($shift !== null) {
+            $shift = $this->service->withLiveSummary($shift);
+        }
+
         return response()->json(['data' => $shift]);
     }
 
@@ -71,6 +75,8 @@ class CashierShiftController extends Controller
         $shift = CashierShift::with('cashier:id,name')
             ->where('business_id', $this->businessId())
             ->findOrFail($id);
+
+        $shift = $this->service->withLiveSummary($shift);
 
         return response()->json(['data' => $shift]);
     }

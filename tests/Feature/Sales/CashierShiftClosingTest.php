@@ -106,6 +106,196 @@ class CashierShiftClosingTest extends TestCase
         ]);
     }
 
+    public function test_active_shift_summary_reflects_completed_sales_before_closing(): void
+    {
+        $product = $this->product('Kopi', 5000);
+
+        $shift = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 50000,
+        ])->assertCreated()->json('data');
+
+        // A freshly opened shift has no sales yet.
+        $active = $this->withToken($this->token)->getJson('/api/v1/sales/shifts/active')
+            ->assertOk()->json('data');
+        $this->assertSame(0, $active['transaction_count']);
+        $this->assertSame(0.0, (float) $active['total_sales']);
+
+        // Two completed sales against the active shift (checkout defaults to a
+        // full cash payment when 'paid'/'method' are omitted).
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 2, 'unit_price' => 5000]],
+        ])->assertCreated();
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 3, 'unit_price' => 5000]],
+        ])->assertCreated();
+
+        // An operational expense recorded mid-shift.
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'expense', 'amount' => 4000, 'category' => 'Lainnya',
+            'note' => 'Parkir', 'shift_id' => $shift['id'],
+        ])->assertCreated();
+
+        // The shift is STILL OPEN — this is the "Tutup Shift" preview screen
+        // reading GET /shifts/active before the cashier confirms closing.
+        $active = $this->withToken($this->token)->getJson('/api/v1/sales/shifts/active')
+            ->assertOk()->json('data');
+
+        $this->assertSame(2, $active['transaction_count']);
+        $this->assertSame(25000.0, (float) $active['total_sales']);
+        $this->assertSame(4000.0, (float) $active['total_expenses']);
+        $this->assertSame(21000.0, (float) $active['net_income']);
+        $this->assertSame(25000.0, (float) $active['payment_breakdown']['cash']);
+
+        // Closing must agree with what the preview already showed.
+        $closed = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift['id']}/close", [
+            'closing_cash' => 50000 + 25000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(2, $closed['transaction_count']);
+        $this->assertSame(25000.0, (float) $closed['total_sales']);
+        $this->assertSame(4000.0, (float) $closed['total_expenses']);
+        $this->assertSame(21000.0, (float) $closed['net_income']);
+    }
+
+    public function test_expected_cash_matches_opening_plus_cash_sales_when_no_expenses(): void
+    {
+        $product = $this->product('Es Teh', 15000);
+
+        $shift = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 10000,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 5, 'unit_price' => 15000]],
+        ])->assertCreated();
+
+        // Opening 10.000 + cash sales 75.000 = expected 85.000; cashier counts
+        // exactly 85.000 in the drawer, so the difference must be zero.
+        $closed = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift['id']}/close", [
+            'closing_cash' => 85000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(85000.0, (float) $closed['expected_cash']);
+        $this->assertSame(0.0, (float) $closed['cash_difference']);
+    }
+
+    public function test_only_cash_payments_count_toward_expected_cash(): void
+    {
+        $product = $this->product('Nasi Kucing', 10000);
+
+        $shift = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 20000,
+        ])->assertCreated()->json('data');
+
+        // Cash sale.
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 2, 'unit_price' => 10000]],
+            'method'      => 'cash',
+        ])->assertCreated();
+
+        // QRIS and transfer sales must NOT inflate the cash expectation.
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 3, 'unit_price' => 10000]],
+            'method'      => 'qris',
+        ])->assertCreated();
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 1, 'unit_price' => 10000]],
+            'method'      => 'transfer',
+        ])->assertCreated();
+
+        $active = $this->withToken($this->token)->getJson('/api/v1/sales/shifts/active')
+            ->assertOk()->json('data');
+        $this->assertSame(60000.0, (float) $active['total_sales']);
+        $this->assertSame(20000.0, (float) $active['payment_breakdown']['cash']);
+
+        // Expected cash: opening 20.000 + cash sales 20.000 = 40.000 — QRIS (30.000)
+        // and transfer (10.000) are excluded.
+        $closed = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift['id']}/close", [
+            'closing_cash' => 40000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(40000.0, (float) $closed['expected_cash']);
+        $this->assertSame(0.0, (float) $closed['cash_difference']);
+    }
+
+    public function test_shift_expenses_reduce_expected_cash(): void
+    {
+        $product = $this->product('Kopi', 10000);
+
+        $shift = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 50000,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 5, 'unit_price' => 10000]],
+        ])->assertCreated();
+
+        // 20.000 paid out of the cash drawer for an operational expense.
+        $this->withToken($this->token)->postJson('/api/v1/finance', [
+            'type' => 'expense', 'amount' => 20000, 'category' => 'Transportasi',
+            'note' => 'Ojek antar pesanan', 'shift_id' => $shift['id'],
+        ])->assertCreated();
+
+        // Expected cash: opening 50.000 + cash sales 50.000 - expenses 20.000 = 80.000.
+        // Cashier counts exactly 80.000 — the drawer is short by the expense paid out,
+        // and that shortfall must NOT show up as an unexplained cash difference.
+        $closed = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift['id']}/close", [
+            'closing_cash' => 80000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(80000.0, (float) $closed['expected_cash']);
+        $this->assertSame(0.0, (float) $closed['cash_difference']);
+    }
+
+    public function test_cash_difference_is_negative_on_shortage_and_positive_on_excess(): void
+    {
+        $product = $this->product('Teh Manis', 5000);
+
+        $shift = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 30000,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 4, 'unit_price' => 5000]],
+        ])->assertCreated();
+
+        // Expected cash: 30.000 + 20.000 = 50.000. Cashier counts only 45.000 (shortage).
+        $closed = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift['id']}/close", [
+            'closing_cash' => 45000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(50000.0, (float) $closed['expected_cash']);
+        $this->assertSame(-5000.0, (float) $closed['cash_difference']);
+
+        // Second shift, same drawer: cashier counts more than expected (excess).
+        $shift2 = $this->withToken($this->token)->postJson('/api/v1/sales/shifts/open', [
+            'opening_cash' => 30000,
+        ])->assertCreated()->json('data');
+
+        $this->withToken($this->token)->postJson('/api/v1/sales/checkout', [
+            'business_id' => $this->businessId,
+            'items'       => [['product_id' => $product, 'quantity' => 4, 'unit_price' => 5000]],
+        ])->assertCreated();
+
+        // Expected cash: 30.000 + 20.000 = 50.000. Cashier counts 55.000 (excess).
+        $closed2 = $this->withToken($this->token)->postJson("/api/v1/sales/shifts/{$shift2['id']}/close", [
+            'closing_cash' => 55000,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(50000.0, (float) $closed2['expected_cash']);
+        $this->assertSame(5000.0, (float) $closed2['cash_difference']);
+    }
+
     public function test_expense_creation_requires_pos_expense_permission(): void
     {
         $noPermToken = $this->tokenFor($this->makeUser(['pos.open'], 'cashier'));

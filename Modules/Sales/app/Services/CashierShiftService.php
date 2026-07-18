@@ -58,6 +58,68 @@ class CashierShiftService
     }
 
     /**
+     * Compute live sales stats (total, count, payment breakdown) from orders
+     * linked to this shift. Shared by the open-shift live preview and the
+     * final close calculation so both always agree with the same source of
+     * truth (completed SaleOrder rows).
+     *
+     * @return array{0: float, 1: int, 2: array<string, float>}
+     */
+    private function computeOrderStats(CashierShift $shift): array
+    {
+        $orders = SaleOrder::where('cashier_shift_id', $shift->id)
+            ->where('status', 'completed')
+            ->with('payments')
+            ->get();
+
+        $totalSales = (float) $orders->sum('total_amount');
+        $transactionCount = $orders->count();
+
+        $breakdown = [];
+        foreach ($orders as $order) {
+            foreach ($order->payments as $payment) {
+                $method = $payment->method;
+                $breakdown[$method] = ($breakdown[$method] ?? 0) + (float) $payment->amount;
+            }
+        }
+
+        return [$totalSales, $transactionCount, $breakdown];
+    }
+
+    private function computeTotalExpenses(CashierShift $shift): float
+    {
+        return (float) FinanceEntry::where('business_id', $shift->business_id)
+            ->where('type', 'expense')
+            ->where('source_type', 'shift_expense')
+            ->where('source_id', $shift->id)
+            ->sum('amount');
+    }
+
+    /**
+     * Attach live-computed summary fields onto a still-OPEN shift so the
+     * "Tutup Shift" preview and the active-shift banner always show up to
+     * date sales/transaction data. Not persisted — final numbers are only
+     * written by close().
+     */
+    public function withLiveSummary(CashierShift $shift): CashierShift
+    {
+        if ($shift->status !== 'open') {
+            return $shift;
+        }
+
+        [$totalSales, $transactionCount, $breakdown] = $this->computeOrderStats($shift);
+        $totalExpenses = $this->computeTotalExpenses($shift);
+
+        $shift->total_sales       = $totalSales;
+        $shift->transaction_count = $transactionCount;
+        $shift->payment_breakdown = $breakdown;
+        $shift->total_expenses    = $totalExpenses;
+        $shift->net_income        = $totalSales - $totalExpenses;
+
+        return $shift;
+    }
+
+    /**
      * Close the active shift with cash counting and summary calculation.
      *
      * @param  array{closing_cash: float, closing_note?: string|null}  $data
@@ -67,26 +129,11 @@ class CashierShiftService
         abort_if($shift->status !== 'open', 422, 'Shift ini sudah ditutup.');
 
         return DB::transaction(function () use ($shift, $data) {
-            // Compute summary from orders linked to this shift
-            $orders = SaleOrder::where('cashier_shift_id', $shift->id)
-                ->where('status', 'completed')
-                ->with('payments')
-                ->get();
-
-            $totalSales = $orders->sum('total_amount');
-            $transactionCount = $orders->count();
-
-            // Payment breakdown by method
-            $breakdown = [];
-            foreach ($orders as $order) {
-                foreach ($order->payments as $payment) {
-                    $method = $payment->method;
-                    $breakdown[$method] = ($breakdown[$method] ?? 0) + (float) $payment->amount;
-                }
-            }
+            [$totalSales, $transactionCount, $breakdown] = $this->computeOrderStats($shift);
+            $totalExpenses = $this->computeTotalExpenses($shift);
 
             $cashSales    = $breakdown['cash'] ?? 0;
-            $expectedCash = (float) $shift->opening_cash + $cashSales;
+            $expectedCash = (float) $shift->opening_cash + $cashSales - $totalExpenses;
             $closingCash  = (float) ($data['closing_cash'] ?? 0);
             $difference   = $closingCash - $expectedCash;
 
@@ -116,12 +163,6 @@ class CashierShiftService
                 'adjustment_note' => $s->adjustment_note,
                 'closing_qty'     => $s->closing_qty ?? max(0, $s->opening_qty + $s->adjustment_qty - $s->sold_qty),
             ])->values()->all();
-
-            $totalExpenses = (float) FinanceEntry::where('business_id', $shift->business_id)
-                ->where('type', 'expense')
-                ->where('source_type', 'shift_expense')
-                ->where('source_id', $shift->id)
-                ->sum('amount');
 
             $shift->update([
                 'status'              => 'closed',

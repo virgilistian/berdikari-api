@@ -237,4 +237,38 @@ class DailyStockController extends Controller
 
         return response()->json(['message' => 'Draf stok berhasil dihapus.']);
     }
+
+    /**
+     * [DEV] Hapus stok harian (development/testing sahaja)
+     *
+     * Menghapus seluruh catatan stok untuk tanggal tertentu apa pun
+     * statusnya. Hanya aktif di lingkungan non-produksi. Jika hari sudah
+     * ditutup, permintaan ditolak kecuali `force=true` dikirim.
+     *
+     * @bodyParam business_id string required UUID bisnis. Example: uuid
+     * @bodyParam force boolean Paksa hapus meski hari sudah ditutup. Example: false
+     *
+     * @response 200 {"message": "Stok harian berhasil dihapus.", "data": {"deleted_count": 5, "was_closed": false}}
+     * @response 404 {"message": "Tidak ada data stok harian untuk tanggal ini."}
+     * @response 409 {"message": "Hari ini sudah ditutup — valuasi stok dan ringkasan shift kasir kemungkinan sudah memakai data ini. Gunakan hapus paksa jika tetap ingin melanjutkan."}
+     */
+    public function destroyDev(Request $request, string $date)
+    {
+        abort_if(app()->environment('production'), 404);
+
+        abort_unless(
+            $request->user()?->hasPermissionTo('inventory.create'),
+            403,
+            'Anda tidak memiliki izin untuk menghapus stok harian.'
+        );
+
+        $request->validate([
+            'business_id' => 'required|uuid',
+            'force'       => 'nullable|boolean',
+        ]);
+
+        $result = $this->service->deleteDayForDev($request->business_id, $date, $request->boolean('force'));
+
+        return response()->json(['message' => 'Stok harian berhasil dihapus.', 'data' => $result]);
+    }
 }

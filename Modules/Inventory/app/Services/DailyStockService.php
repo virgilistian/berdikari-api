@@ -240,4 +240,42 @@ class DailyStockService
                 ->delete();
         });
     }
+
+    /**
+     * [DEV-ONLY] Delete every daily-stock record for a date, regardless of
+     * status. Unlike deleteDraftDay(), this also removes 'open' and 'closed'
+     * days — for clearing bad test/seed data. The controller gates this
+     * behind a non-production environment check; never reachable in prod.
+     *
+     * A 'closed' day has already synced Inventory's live quantity/valuation
+     * (see closeDay()) and may back a cashier shift's closing snapshot. That
+     * downstream effect can't be safely reversed here, so deletion of a
+     * closed day is refused unless $force is set.
+     *
+     * @return array{deleted_count: int, was_closed: bool}
+     */
+    public function deleteDayForDev(string $businessId, string $date, bool $force = false): array
+    {
+        return DB::transaction(function () use ($businessId, $date, $force) {
+            $stocks = DailyStock::where('business_id', $businessId)
+                ->where('date', $date)
+                ->get();
+
+            abort_if($stocks->isEmpty(), 404, 'Tidak ada data stok harian untuk tanggal ini.');
+
+            $wasClosed = $stocks->contains(fn ($s) => $s->status === 'closed');
+
+            abort_if(
+                $wasClosed && ! $force,
+                409,
+                'Hari ini sudah ditutup — valuasi stok dan ringkasan shift kasir kemungkinan sudah memakai data ini. Gunakan hapus paksa jika tetap ingin melanjutkan.'
+            );
+
+            $deleted = DailyStock::where('business_id', $businessId)
+                ->where('date', $date)
+                ->delete();
+
+            return ['deleted_count' => $deleted, 'was_closed' => $wasClosed];
+        });
+    }
 }
