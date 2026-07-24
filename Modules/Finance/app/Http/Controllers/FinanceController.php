@@ -77,6 +77,9 @@ class FinanceController extends Controller
      *
      * `shift_id` opsional: menandai pengeluaran operasional yang dicatat kasir
      * selama shift aktif (mis. belanja mendadak). Hanya berlaku untuk `type=expense`.
+     * `client_uuid` opsional: kunci idempotensi dari perangkat (offline sync) —
+     * mengirim ulang `client_uuid` yang sama mengembalikan entri yang sudah ada,
+     * bukan membuat duplikat.
      */
     public function store(Request $request): JsonResponse
     {
@@ -88,6 +91,7 @@ class FinanceController extends Controller
             'occurred_at' => ['nullable', 'date', 'before_or_equal:'.$this->todayForValidation()],
             'business_id' => ['nullable', 'uuid', \Illuminate\Validation\Rule::in([$this->businessId($request)])],
             'shift_id'    => 'nullable|uuid',
+            'client_uuid' => 'nullable|uuid',
         ], [
             'occurred_at.before_or_equal' => 'Tanggal transaksi tidak boleh di masa depan.',
         ]);
@@ -104,8 +108,28 @@ class FinanceController extends Controller
             'Anda tidak memiliki izin untuk mencatat transaksi ini.'
         );
 
+        $businessId = $data['business_id'] ?? $this->businessId($request);
+
+        // Offline-sync idempotency: the same client entry (identified by
+        // client_uuid) must never be recorded twice — return the original.
+        if (! empty($data['client_uuid'])) {
+            $existing = FinanceEntry::withoutGlobalScopes()
+                ->with('business:id,name')
+                ->where('business_id', $businessId)
+                ->where('client_uuid', $data['client_uuid'])
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'message' => 'Transaksi berhasil dicatat.',
+                    'data'    => $existing,
+                ], 201);
+            }
+        }
+
         $entry = FinanceEntry::create([
-            'business_id' => $data['business_id'] ?? $this->businessId($request),
+            'business_id' => $businessId,
+            'client_uuid' => $data['client_uuid'] ?? null,
             'type'        => $data['type'],
             'amount'      => $data['amount'],
             'category'    => $data['category'],

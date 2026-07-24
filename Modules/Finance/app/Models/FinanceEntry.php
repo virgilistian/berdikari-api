@@ -16,6 +16,7 @@ class FinanceEntry extends Model
 
     protected $fillable = [
         'business_id',
+        'client_uuid',
         'type',
         'amount',
         'category',
