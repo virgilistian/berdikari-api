@@ -7,6 +7,9 @@
             "email": "n.widart@gmail.com"
         }
     ],
+    "require": {
+        "intervention/image": "^3.11"
+    },
     "extra": {
         "laravel": {
             "providers": [],

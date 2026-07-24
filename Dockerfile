@@ -42,6 +42,8 @@ WORKDIR /var/www/html
 
 COPY . .
 
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
+
 RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
     && chmod -R 775 bootstrap/cache storage \
     && chmod +x /var/www/html/docker/entrypoint.sh

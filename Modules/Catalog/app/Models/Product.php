@@ -23,6 +23,12 @@ class Product extends Model
         'is_active',
         'description',
         'image_url',
+        // Only ProductController's upload/delete actions ever pass these —
+        // the generic store/update validation rules never include them, so
+        // a client can't set them through the regular create/update body.
+        'photo_disk',
+        'photo_path',
+        'photo_mime_type',
     ];
 
     protected $casts = [
@@ -32,8 +38,17 @@ class Product extends Model
         'is_active'      => 'boolean',
     ];
 
+    protected $appends = ['has_photo'];
+
+    protected $hidden = ['photo_disk', 'photo_path', 'photo_mime_type'];
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function getHasPhotoAttribute(): bool
+    {
+        return ! empty($this->photo_path);
     }
 }
